@@ -4,6 +4,7 @@
 #include <set>
 #include <map>
 #include <boost/dynamic_bitset.hpp>
+#include "matroid.h"
 
 using namespace std;
 
@@ -13,10 +14,10 @@ typedef boost::dynamic_bitset<>              xor_func;
 typedef pair<char, xor_func > exponent;
 
 struct Hadamard {
-  string qubit;                 // Which qubit this hadamard is applied to
-  int    prep;                  // Which "value" this hadamard prepares
+  int qubit;                 // Which qubit this hadamard is applied to
+  int prep;                  // Which "value" this hadamard prepares
 
-  list<exponent> in; // exponents that must be prepared before the hadamard
+  set<int> in; // exponents that must be prepared before the hadamard
 };
 
 // Internal representation of a .qc circuit and a {CNOT, T} circuit
@@ -47,6 +48,6 @@ struct character {
 	void output(ostream& out);
 	void print() {output(cout);}
   void parse_circuit(dotqc & input);
-	//dotqc synthesize();
+	dotqc synthesize();
 };
 

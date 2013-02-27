@@ -1,4 +1,3 @@
-#include "matroid.h"
 #include "circuit.h"
 #include <cstdio>
 #include <boost/dynamic_bitset.hpp>
@@ -57,30 +56,15 @@ int main() {
   c.parse_circuit(circuit);
   cout << "Done parsing\n" << flush;
   c.print();
-  return 0;
-  /*
-  int n, i = 0;
-  char c;
 
-  cin >> n;
-  cout << n << "\n";
-  vector<exponent> expts;
-  xor_func tmp(n, 0);
-  cin >> c;
-  while (cin.peek() != '-') {
-    c = getchar();
-    if (c == '1') tmp.set(i);
-    else if (c == '0') tmp.reset(i);
-    else if (c == '\n') {
-      expts.push_back(make_pair(0, tmp));
-      i = -1;
-    }
-    i++;
-  }
-
-  matroid<exponent, ind_oracle> mat(expts, ind_oracle(n, n));
+  matroid<exponent, ind_oracle> mat(c.phase_expts, ind_oracle(c.n + c.h + c.m, c.n + c.h));
   partitioning part = mat.partition_matroid();
-  */
+  cout << part << "\n" << "\n" << flush;
+
+  for (list<Hadamard>::iterator it = c.hadamards.begin(); it != c.hadamards.end(); it++) {
+    partitioning tmp = freeze_partitions(part, it->in);
+    cout << "frozen: " << tmp << "\nremaining: "<< part << "\n" << "\n" << flush;
+  }
 
 	return 0;
 }

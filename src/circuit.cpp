@@ -115,32 +115,26 @@ void character::output(ostream& out) {
 	vector<exponent>::iterator it;
 
 	out << "U|";
-	for (i = 0; i < (n + m); i++) {
+	for (i = 0; i < n; i++) {
 		if (i != 0) out << " ";
 		out << names[i];
 	}
-  /*
+  for (; i < (n + m); i++) {
+		if (i != 0) out << " ";
+		out << "()";
+  }
+
 	out << "> --> w^(";
 
 	// Print the phase exponents
 	for (it = phase_expts.begin(); it != phase_expts.end(); it++) {
 		if (it != phase_expts.begin()) out << "+";
 		out << (int)(it->first) << "*";
-		for (int i = 0; i < n + h + m; i++) {
-			if (it->second[i]) out << names[i];
+		for (i = 0; i < n + h; i++) {
+			if (it->second.test(i)) out << names[i];
 		}
 	}
 	out << ")|";
-  */
-  out << "\n";
-	for (it = phase_expts.begin(); it != phase_expts.end(); it++) {
-    for (int i = 0; i < n + h + m; i++) {
-      if (it->second[i]) out << 1;
-      else out << 0;
-    }
-    out << "\n";
-  }
-
 
 	// Print the output functions
 	for (i = 0; i < (n + m); i++) {
@@ -166,10 +160,10 @@ void character::output(ostream& out) {
 
   // Print the Hadamards:
   for (list<Hadamard>::iterator ti = hadamards.begin(); ti != hadamards.end(); ti++) {
-    out << "H:" << ti->qubit << "-->" << ti->prep << " | ";
-    for (list<exponent>::iterator iti = ti->in.begin(); iti != ti->in.end(); iti++) {
-      for (int i = 0; i < n + h + m; i++) {
-        if (iti->second[i]) out << 1;
+    out << "H:" << names[ti->qubit] << "-->" << ti->prep << " | ";
+    for (set<int>::iterator iti = ti->in.begin(); iti != ti->in.end(); iti++) {
+      for (int i = 0; i < n + h; i++) {
+        if (phase_expts[*iti].second.test(i)) out << 1;
         else out << 0;
       }
       out << " | ";
@@ -208,9 +202,10 @@ void character::parse_circuit(dotqc & input) {
 	val_map["P*"] = 6;
 	val_map["Z"] = 4;
 
-	names = new string [n + m];
+  // Name stuff
+	names = new string [n + m + h];
   i = 0;
-  j = n;
+  j = n + h;
 	for (set<string>::iterator it = input.names.begin(); it != input.names.end(); it++) {
 		if (input.zero[*it]) {
 			name_map[*it] = j;
@@ -232,7 +227,6 @@ void character::parse_circuit(dotqc & input) {
 	}
 	for (; j < (n + m); j++) wires[j] = xor_func (n + h, 0);
 
-	vector<exponent>::iterator ti;
 	bool flg;
 
   cout << h << "\n" << flush;
@@ -267,23 +261,25 @@ void character::parse_circuit(dotqc & input) {
       //   rank, then adding each phase exponent and checking the rank you do it
       //   in place
       Hadamard new_h;
-      new_h.qubit = *(it->second.begin());
-      new_h.prep = i++;
+      new_h.qubit = name_map[*(it->second.begin())];
+      new_h.prep = i;
+      names[i] = names[new_h.qubit];
+      names[i++].append(to_string(new_h.prep));
 
-      int tmp = name_map[*(it->second.begin())];
       int rank;
 
-      wires[tmp] = xor_func (n + h, 0);
+      wires[new_h.qubit] = xor_func (n + h, 0);
       rank = compute_rank(n + m, n + h, wires);
       // Check previous exponents to see if they're inconsistent
-      for (ti = phase_expts.begin(); ti != phase_expts.end(); ti++) {
-        if (ti->first != 0) {
-          wires[tmp] = ti->second;
-          if (compute_rank(n + m, n + h, wires) > rank) new_h.in.push_back(*ti);
+      for (j = 0; j < phase_expts.size(); j++) {
+        if (phase_expts[j].first != 0) {
+          wires[new_h.qubit] = phase_expts[j].second;
+          if (compute_rank(n + m, n + h, wires) > rank) new_h.in.insert(j);
         }
       }
       // Prepare the new value
-      wires[tmp].set(new_h.prep);
+      wires[new_h.qubit].reset();
+      wires[new_h.qubit].set(new_h.prep);
 
       hadamards.push_back(new_h);
 		} else {
@@ -294,12 +290,9 @@ void character::parse_circuit(dotqc & input) {
 	}
 }
 
-  /*
-dotqc cnot_t_circuit::synthesize() {
-	list<pair<string, list<string> > > net;
-	list<vector<exponent> > basis;
-	partitioning part;
-	vector<exponent> * tmp;
+//---------------------------- Synthesis
+dotqc character::synthesize() {
+  partitioning floats, frozen;
 	dotqc ret;
 
 	ret.n = n;
@@ -310,35 +303,63 @@ dotqc cnot_t_circuit::synthesize() {
 		else ret.zero[names[i]] = 0;
 	}
 
-	// Partition the phase exponents
-	cerr << "Partitioning matroid... " << flush;
-	part = partition_matroid<exponent, ind_oracle>(phase_expts, ind_oracle(n, n + m));
-	cerr << part << "\n" << flush;
+//  for (ith = hadamards.begin(); ith != hadamards.end(); ith++) {
+    // 1. freeze partitions that are not disjoint from the hadamard input
+    // 2. construct CNOT+T circuit
+    // 3. apply the hadamard gate
+    // 4. add new functions to the partition
 
-	// Fill the partitions to have full rank
-	cerr << "Filling out missing rank... " << flush;
-	for (partitioning::iterator it = part.begin(); it != part.end(); it++) {
-		tmp = new vector<exponent>();
-		tmp->reserve(n + m);
-		for (set<int>::iterator ti = it->begin(); ti != it->end(); ti++) {
-			tmp->push_back(phase_expts[*ti]);
-		}
-		make_full_rank(n, m, *tmp);
-		basis.push_back(*tmp);
-		delete tmp;
-	}
-	cerr << "\n" << flush;
+    /*
+    cerr << "Freezing partitions... " << flush;
+    frozen = freeze_partitions(floats, ith->in);
+    cerr << frozen << "\n" << flush;
 
-	// Construct the new circuit
-	cerr << "Constructing circuit... " << flush;
-	for (list<vector<exponent> >::iterator it = basis.begin(); it != basis.end(); it++) {
-		net = compute_CNOT_network(n, m, *it, names);
-		ret.circ.splice(ret.circ.end(), net);
-	}
-	net = compute_output_func(n, m, outputs, names);
-	ret.circ.splice(ret.circ.end(), net);
-	cerr << "\n" << flush;
+    cerr << "Constructing {CNOT, T} subcircuit... " << flush;
+    circ = construct_circuit(frozen, wires, ith->state);
+    wires = ith->state;
+    cerr << "\n" << flush;
 
-	return ret;
+    cerr << "Applying Hadamard gate... " << flush;
+    circ.push_back(make_pair("H", list<string>(1, ith->qubit)));
+    wires[ith->qubit] = xor_func(n + h, ith->prep);
+    cerr << "\n" << flush;
+
+    cerr << "Adding new functions to the partition... " << flush;
+
+    cerr << floats << "\n" << flush;
+*/
+
+    /*
+    // Partition the phase exponents
+    cerr << "Partitioning matroid... " << flush;
+    part = mat.partition_matroid();
+    cerr << part << "\n" << flush;
+
+    // Fill the partitions to have full rank
+    cerr << "Filling out missing rank... " << flush;
+    for (partitioning::iterator it = part.begin(); it != part.end(); it++) {
+      tmp = new vector<exponent>();
+      tmp->reserve(n + m);
+      for (set<int>::iterator ti = it->begin(); ti != it->end(); ti++) {
+        tmp->push_back(phase_expts[*ti]);
+      }
+      make_full_rank(n, m, *tmp);
+      basis.push_back(*tmp);
+      delete tmp;
+    }
+    cerr << "\n" << flush;
+
+    // Construct the new circuit
+    cerr << "Constructing circuit... " << flush;
+    for (list<vector<exponent> >::iterator it = basis.begin(); it != basis.end(); it++) {
+      net = compute_CNOT_network(n, m, *it, names);
+      ret.circ.splice(ret.circ.end(), net);
+    }
+    net = compute_output_func(n, m, outputs, names);
+    ret.circ.splice(ret.circ.end(), net);
+    cerr << "\n" << flush;
+    */
+ // }
+
+  return ret;
 }
-  */
