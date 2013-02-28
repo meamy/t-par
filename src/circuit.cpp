@@ -130,9 +130,12 @@ void character::output(ostream& out) {
 	for (it = phase_expts.begin(); it != phase_expts.end(); it++) {
 		if (it != phase_expts.begin()) out << "+";
 		out << (int)(it->first) << "*";
-		for (i = 0; i < n + h; i++) {
+		for (i = 0; i < n; i++) {
 			if (it->second.test(i)) out << names[i];
 		}
+    for (; i < n + h; i++) {
+			if (it->second.test(i)) out << names[i + m];
+    }
 	}
 	out << ")|";
 
@@ -205,7 +208,7 @@ void character::parse_circuit(dotqc & input) {
   // Name stuff
 	names = new string [n + m + h];
   i = 0;
-  j = n + h;
+  j = n;
 	for (set<string>::iterator it = input.names.begin(); it != input.names.end(); it++) {
 		if (input.zero[*it]) {
 			name_map[*it] = j;
@@ -269,8 +272,10 @@ void character::parse_circuit(dotqc & input) {
       }
 
       // Check previous exponents to see if they're inconsistent
+    cout << "HELLO " << new_h.qubit << "\n" << flush;
       wires[new_h.qubit] = xor_func (n + h, 0);
       int rank = compute_rank(n + m, n + h, wires);
+    cout << "GOODBYE\n" << flush;
       for (j = 0; j < phase_expts.size(); j++) {
         if (phase_expts[j].first != 0) {
           wires[new_h.qubit] = phase_expts[j].second;
@@ -286,8 +291,8 @@ void character::parse_circuit(dotqc & input) {
       wires[new_h.qubit].set(new_h.prep);
 
       // Give this new value a name
-      names[new_h.prep] = names[new_h.qubit];
-      names[new_h.prep].append(to_string(new_h.prep));
+      names[new_h.prep + m] = names[new_h.qubit];
+      names[new_h.prep + m].append(to_string(new_h.prep));
 
 		} else {
 			cout << "ERROR: not a {CNOT, T} circuit\n";
@@ -298,6 +303,7 @@ void character::parse_circuit(dotqc & input) {
 }
 
 //---------------------------- Synthesis
+
 class ind_oracle {
 	private: 
 		int num;
@@ -307,7 +313,9 @@ class ind_oracle {
     ind_oracle() { num = 0; dim = 0; length = 0; }
 		ind_oracle(int numin, int dimin, int lengthin) { num = numin; dim = dimin; length = lengthin; }
 
-		bool operator()(const vector<exponent> & expnts, const set<int> & lst) {
+    void set_dim(int newdim) { dim = newdim; }
+
+		bool operator()(const vector<exponent> & expnts, const set<int> & lst) const {
 			if (lst.size() > num) return false;
 			if (lst.size() == 1 || (num - lst.size()) >= dim) return true;
 
@@ -348,7 +356,8 @@ dotqc character::synthesize() {
   xor_func mask(n + h, 0);      // Tells us what values we have prepared
   xor_func wires[n + m];        // Current state of the wires
   list<int> remaining;          // Which terms we still have to partition
-  matroid<exponent, ind_oracle> mat(phase_expts, ind_oracle(n + m, n, n + h));
+  int dim = n, tmp;
+  ind_oracle oracle(n + m, dim, n + h);
 
   // initialize some stuff
 	ret.n = n;
@@ -371,14 +380,14 @@ dotqc character::synthesize() {
   // create an initial partition
   cerr << "Adding new functions to the partition... " << flush;
   for (list<int>::iterator it = remaining.begin(); it != remaining.end();) {
-    cout << *it << " ";
     xor_func tmp = (~mask) & (phase_expts[*it].second);
     if (tmp.none()) {
-      mat.add_to_partition(floats, *it);
+      add_to_partition(floats, *it, phase_expts, oracle);
       it = remaining.erase(it);
     } else it++;
   }
   cerr << floats << "\n" << flush;
+  cout << compute_rank(n +m,n + h,wires) << "\n";
 
   for (list<Hadamard>::iterator it = hadamards.begin(); it != hadamards.end(); it++) {
     // 1. freeze partitions that are not disjoint from the hadamard input
@@ -392,7 +401,9 @@ dotqc character::synthesize() {
 
     cerr << "Constructing {CNOT, T} subcircuit... " << flush;
     //circ = construct_circuit(frozen, wires, ith->state);
-    //wires = it->state;
+	  for (int i = 0; i < n + m; i++) {
+      wires[i] = it->wires[i];
+    }
     cerr << "\n" << flush;
 
     cerr << "Applying Hadamard gate... " << flush;
@@ -401,12 +412,22 @@ dotqc character::synthesize() {
     mask.set(it->prep);
     cerr << "\n" << flush;
 
+    cerr << "Checking for increase in dimension... " << flush;
+    tmp = compute_rank(n + m, n + h, wires);
+    if (tmp > dim) {
+      cerr << "Increased to " << tmp << "\n" << "Repartitioning... " << flush;
+      dim = tmp;
+      oracle.set_dim(dim);
+      repartition(floats, phase_expts, oracle);
+      cerr << floats << flush;
+    }
+    cerr << "\n" << flush;
+
     cerr << "Adding new functions to the partition... " << flush;
     for (list<int>::iterator it = remaining.begin(); it != remaining.end();) {
-      cout << *it << " ";
       xor_func tmp = (~mask) & (phase_expts[*it].second);
       if (tmp.none()) {
-        mat.add_to_partition(floats, *it);
+        add_to_partition(floats, *it, phase_expts, oracle);
         it = remaining.erase(it);
       } else it++;
     }
