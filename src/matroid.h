@@ -132,11 +132,8 @@ void repartition(partitioning & part, const vector<T> & elts, const oracle_type 
   
   list<int> acc;
 
-  cout << "YO\n" << flush;
   for (Si = part.begin(); Si != part.end(); Si++) {
-    cout << "ICK\n" << flush;
     if (!(oracle(elts, *Si))) {
-      cout << "HEY\n" << flush;
       yi = Si->begin();
       acc.push_back(*yi);
       Si->erase(yi);

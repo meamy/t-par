@@ -1,4 +1,16 @@
 #include "topt.cpp"
+#include <algorithm>
+
+void print_wires(const xor_func * wires, int num, int dim) {
+  int i, j;
+  for (i = 0; i < num; i++) {
+    for (j = 0; j < dim; j++) {
+      if (wires[i].test(j)) cout << "1";
+      else                  cout << "0";
+    }
+    cout << "\n";
+  }
+}
 
 //----------------------------------------- DOTQC stuff
 
@@ -17,7 +29,7 @@ void dotqc::input(istream& in) {
 	ignore_white(in);
 	while(in.peek() != '\n') {
 		in >> buf;
-		names.insert(buf);
+		names.push_back(buf);
 		zero[buf] = 1;
 		ignore_white(in);
 	}
@@ -43,7 +55,7 @@ void dotqc::input(istream& in) {
 		ignore_white(in);
 		while (in.peek() != '\n') {
 			in >> buf;
-			if (names.find(buf) == names.end()) {
+			if (find(names.begin(), names.end(), buf) == names.end()) {
 				cout << "ERROR: no such qubit \"" << buf << "\"\n" << flush;
 				exit(1);
 			} else {
@@ -58,7 +70,7 @@ void dotqc::input(istream& in) {
 
 void dotqc::output(ostream& out) {
 	int i;
-	set<string>::iterator name_it;
+	list<string>::iterator name_it;
 	list<pair<string, list<string> > >::iterator it; 
 	list<string>::iterator ti;
 
@@ -86,15 +98,6 @@ void dotqc::output(ostream& out) {
 	out << "END\n";
 }
 
-// Append a gate to the end of a dotqc structure
-void dotqc::append(pair<string, list<string> > gate) {
-	circ.push_back(gate);
-
-	for (list<string>::iterator it = gate.second.begin(); it != gate.second.end(); it++) {
-		names.insert(*it);
-	}
-}
-
 // Count the Hadamard gates
 int count_h(dotqc & qc) {
   int ret = 0;
@@ -115,14 +118,11 @@ void character::output(ostream& out) {
 	vector<exponent>::iterator it;
 
 	out << "U|";
-	for (i = 0; i < n; i++) {
-		if (i != 0) out << " ";
-		out << names[i];
+	for (i = 0; i < (n + m); i++) {
+		if (i != 0)  out << " ";
+    if (zero[i]) out << "()";
+    else out << names[i];
 	}
-  for (; i < (n + m); i++) {
-		if (i != 0) out << " ";
-		out << "()";
-  }
 
 	out << "> --> w^(";
 
@@ -130,12 +130,9 @@ void character::output(ostream& out) {
 	for (it = phase_expts.begin(); it != phase_expts.end(); it++) {
 		if (it != phase_expts.begin()) out << "+";
 		out << (int)(it->first) << "*";
-		for (i = 0; i < n; i++) {
-			if (it->second.test(i)) out << names[i];
+		for (i = 0; i < (n + h); i++) {
+			if (it->second.test(i)) out << names[val_map[i]];
 		}
-    for (; i < n + h; i++) {
-			if (it->second.test(i)) out << names[i + m];
-    }
 	}
 	out << ")|";
 
@@ -143,20 +140,13 @@ void character::output(ostream& out) {
 	for (i = 0; i < (n + m); i++) {
 		flag = false;
 		out << "(";
-    for (j = 0; j < n; j++) {
+    for (j = 0; j < (n + h); j++) {
 			if (outputs[i].test(j)) {
 				if (flag) out << " ";
-				out << names[j];
+				out << names[val_map[j]];
 				flag = true;
       }
     }
-		for (; j < n + h; j++) {
-			if (outputs[i].test(j)) {
-				if (flag) out << " ";
-        out << j;
-				flag = true;
-			}
-		}
 		out << ")";
 	}
 	out << ">\n";
@@ -164,6 +154,7 @@ void character::output(ostream& out) {
   // Print the Hadamards:
   for (list<Hadamard>::iterator ti = hadamards.begin(); ti != hadamards.end(); ti++) {
     out << "H:" << names[ti->qubit] << "-->" << ti->prep << " | ";
+    /*
     for (set<int>::iterator iti = ti->in.begin(); iti != ti->in.end(); iti++) {
       for (int i = 0; i < n + h; i++) {
         if (phase_expts[*iti].second.test(i)) out << 1;
@@ -171,6 +162,7 @@ void character::output(ostream& out) {
       }
       out << " | ";
     }
+    */
     out << "\n";
   }
 }
@@ -190,49 +182,43 @@ void insert_phase (unsigned char c, xor_func f, vector<exponent> & phases) {
 }
 
 // Parse a {CNOT, T} circuit
+// NOTE: a qubit's number is NOT the same as the bit it begins with set
 void character::parse_circuit(dotqc & input) {
-	int i, j, a, b, c;
+	int i, j, a, b, c, name_max = 0, val_max = 0;
 	n = input.n;
 	m = input.m;
   h = count_h(input);
 
   hadamards.clear();
-  map<int, int> qubit_map;
-	map<string, int> name_map, val_map;
-	val_map["T"] = 1;
-	val_map["T*"] = 7;
-	val_map["P"] = 2;
-	val_map["P*"] = 6;
-	val_map["Z"] = 4;
+	map<string, int> name_map, gate_lookup;
+	gate_lookup["T"] = 1;
+	gate_lookup["T*"] = 7;
+	gate_lookup["P"] = 2;
+	gate_lookup["P*"] = 6;
+	gate_lookup["Z"] = 4;
 
-  // Name stuff
+  // Initialize names and wires
 	names = new string [n + m + h];
-  i = 0;
-  j = n;
-	for (set<string>::iterator it = input.names.begin(); it != input.names.end(); it++) {
-		if (input.zero[*it]) {
-			name_map[*it] = j;
-      val_map[*it]  = j;
-			names[j++] = *it;
-		} else {
-			name_map[*it] = i;
-      val_map[*it]  = i;
-			names[i++] = *it;
-		}
-	}
-
+  zero  = new bool   [n + m];
   xor_func * wires = outputs = new xor_func [n + m];
-
-	// Start each wire out with only its input in the sum
-	for (j = 0; j < n; j++) {
-		wires[j] = xor_func(n + h, 0);
-		wires[j].set(j);
+	for (list<string>::iterator it = input.names.begin(); it != input.names.end(); it++) {
+    // name_map maps a name to a wire
+		name_map[*it] = name_max;
+    // names maps a wire to a name
+		names[name_max] = *it;
+    // zero mapping
+    zero[name_max]  = input.zero[*it];
+    // each wire has an initial value j, unless it starts in the 0 state
+    wires[name_max] = xor_func(n + h, 0);
+    if (!zero[name_max]) {
+      wires[name_max].set(val_max);
+      val_map[val_max++] = name_max;
+    }
+    name_max++;
 	}
-	for (; j < (n + m); j++) wires[j] = xor_func (n + h, 0);
 
 	bool flg;
 
-  cout << h << "\n" << flush;
 	list<pair<string,list<string> > >::iterator it;
 	for (it = input.circ.begin(); it != input.circ.end(); it++) {
 		flg = false;
@@ -242,7 +228,7 @@ void character::parse_circuit(dotqc & input) {
 				       it->first == "P" || it->first == "P*" || 
 							 (it->first == "Z" && it->second.size() == 1)) {
 			a = name_map[*(it->second.begin())];
-			insert_phase(val_map[it->first], wires[a], phase_expts);
+			insert_phase(gate_lookup[it->first], wires[a], phase_expts);
 		} else if (it->first == "Z" && it->second.size() == 3) {
 			list<string>::iterator tmp_it = it->second.begin();
 			a = name_map[*(tmp_it++)];
@@ -265,21 +251,19 @@ void character::parse_circuit(dotqc & input) {
       //   in place
       Hadamard new_h;
       new_h.qubit = name_map[*(it->second.begin())];
-      new_h.prep  = i++;
+      new_h.prep  = val_max++;
       new_h.wires = new xor_func[n + m];
-      for (j = 0; j < n + m; j++) {
-        new_h.wires[j] = wires[j];
+      for (i = 0; i < n + m; i++) {
+        new_h.wires[i] = wires[i];
       }
 
       // Check previous exponents to see if they're inconsistent
-    cout << "HELLO " << new_h.qubit << "\n" << flush;
-      wires[new_h.qubit] = xor_func (n + h, 0);
+      wires[new_h.qubit].reset();
       int rank = compute_rank(n + m, n + h, wires);
-    cout << "GOODBYE\n" << flush;
-      for (j = 0; j < phase_expts.size(); j++) {
-        if (phase_expts[j].first != 0) {
-          wires[new_h.qubit] = phase_expts[j].second;
-          if (compute_rank(n + m, n + h, wires) > rank) new_h.in.insert(j);
+      for (i = 0; i < phase_expts.size(); i++) {
+        if (phase_expts[i].first != 0) {
+          wires[new_h.qubit] = phase_expts[i].second;
+          if (compute_rank(n + m, n + h, wires) > rank) new_h.in.insert(i);
         }
       }
 
@@ -291,8 +275,9 @@ void character::parse_circuit(dotqc & input) {
       wires[new_h.qubit].set(new_h.prep);
 
       // Give this new value a name
-      names[new_h.prep + m] = names[new_h.qubit];
-      names[new_h.prep + m].append(to_string(new_h.prep));
+      val_map[new_h.prep] = name_max;
+      names[name_max] = names[new_h.qubit];
+      names[name_max++].append(to_string(new_h.prep));
 
 		} else {
 			cout << "ERROR: not a {CNOT, T} circuit\n";
@@ -362,15 +347,13 @@ dotqc character::synthesize() {
   // initialize some stuff
 	ret.n = n;
 	ret.m = m;
-	for (int i = 0; i < n + m; i++) {
-		ret.names.insert(names[i]);
+	for (int i = 0, j = 0; i < n + m; i++) {
+		ret.names.push_back(names[i]);
+    ret.zero[names[i]] = zero[i];
     wires[i] = xor_func(n + h, 0);
-    if (i < n) {
-      ret.zero[names[i]] = 0;
-      wires[i].set(i);
-      mask.set(i);
-    } else {
-      ret.zero[names[i]] = 1;
+    if (!zero[i]) {
+      wires[i].set(j);
+      mask.set(j++);
     }
   }
 
@@ -387,7 +370,6 @@ dotqc character::synthesize() {
     } else it++;
   }
   cerr << floats << "\n" << flush;
-  cout << compute_rank(n +m,n + h,wires) << "\n";
 
   for (list<Hadamard>::iterator it = hadamards.begin(); it != hadamards.end(); it++) {
     // 1. freeze partitions that are not disjoint from the hadamard input
@@ -408,7 +390,8 @@ dotqc character::synthesize() {
 
     cerr << "Applying Hadamard gate... " << flush;
     //circ.push_back(make_pair("H", list<string>(1, it->qubit)));
-    wires[it->qubit] = xor_func(n + h, it->prep);
+    wires[it->qubit].reset();
+    wires[it->qubit].set(it->prep);
     mask.set(it->prep);
     cerr << "\n" << flush;
 
