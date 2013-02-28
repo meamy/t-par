@@ -56,7 +56,7 @@ int main() {
   c.parse_circuit(circuit);
   cout << "Done parsing\n" << flush;
   c.print();
-
+/*
   matroid<exponent, ind_oracle> mat(c.phase_expts, ind_oracle(c.n + c.h + c.m, c.n + c.h));
   partitioning part = mat.partition_matroid();
   cout << part << "\n" << "\n" << flush;
@@ -65,6 +65,9 @@ int main() {
     partitioning tmp = freeze_partitions(part, it->in);
     cout << "frozen: " << tmp << "\nremaining: "<< part << "\n" << "\n" << flush;
   }
+  */
+
+  dotqc synth = c.synthesize();
 
 	return 0;
 }

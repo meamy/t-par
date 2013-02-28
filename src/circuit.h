@@ -14,10 +14,11 @@ typedef boost::dynamic_bitset<>              xor_func;
 typedef pair<char, xor_func > exponent;
 
 struct Hadamard {
-  int qubit;                 // Which qubit this hadamard is applied to
-  int prep;                  // Which "value" this hadamard prepares
+  int qubit;        // Which qubit this hadamard is applied to
+  int prep;         // Which "value" this hadamard prepares
 
-  set<int> in; // exponents that must be prepared before the hadamard
+  set<int> in;      // exponent terms that must be prepared before the hadamard
+  xor_func * wires; // state of the wires when this hadamard is applied
 };
 
 // Internal representation of a .qc circuit and a {CNOT, T} circuit

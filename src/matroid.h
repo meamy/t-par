@@ -7,7 +7,7 @@
 
 using namespace std;
 
-//-------------------------------------- Matroid class
+//-------------------------------------- Matroids
 // Implements a matroid partitioning algorithm
 template <class T, typename oracle_type>
 class matroid {

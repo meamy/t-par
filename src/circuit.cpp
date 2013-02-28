@@ -262,26 +262,33 @@ void character::parse_circuit(dotqc & input) {
       //   in place
       Hadamard new_h;
       new_h.qubit = name_map[*(it->second.begin())];
-      new_h.prep = i;
-      names[i] = names[new_h.qubit];
-      names[i++].append(to_string(new_h.prep));
+      new_h.prep  = i++;
+      new_h.wires = new xor_func[n + m];
+      for (j = 0; j < n + m; j++) {
+        new_h.wires[j] = wires[j];
+      }
 
-      int rank;
-
-      wires[new_h.qubit] = xor_func (n + h, 0);
-      rank = compute_rank(n + m, n + h, wires);
       // Check previous exponents to see if they're inconsistent
+      wires[new_h.qubit] = xor_func (n + h, 0);
+      int rank = compute_rank(n + m, n + h, wires);
       for (j = 0; j < phase_expts.size(); j++) {
         if (phase_expts[j].first != 0) {
           wires[new_h.qubit] = phase_expts[j].second;
           if (compute_rank(n + m, n + h, wires) > rank) new_h.in.insert(j);
         }
       }
+
+      // Done creating the new hadamard
+      hadamards.push_back(new_h);
+
       // Prepare the new value
       wires[new_h.qubit].reset();
       wires[new_h.qubit].set(new_h.prep);
 
-      hadamards.push_back(new_h);
+      // Give this new value a name
+      names[new_h.prep] = names[new_h.qubit];
+      names[new_h.prep].append(to_string(new_h.prep));
+
 		} else {
 			cout << "ERROR: not a {CNOT, T} circuit\n";
 			phase_expts.clear();
@@ -291,43 +298,123 @@ void character::parse_circuit(dotqc & input) {
 }
 
 //---------------------------- Synthesis
-dotqc character::synthesize() {
-  partitioning floats, frozen;
-	dotqc ret;
+class ind_oracle {
+	private: 
+		int num;
+		int dim;
+    int length;
+	public:
+    ind_oracle() { num = 0; dim = 0; length = 0; }
+		ind_oracle(int numin, int dimin, int lengthin) { num = numin; dim = dimin; length = lengthin; }
 
+		bool operator()(const vector<exponent> & expnts, const set<int> & lst) {
+			if (lst.size() > num) return false;
+			if (lst.size() == 1 || (num - lst.size()) >= dim) return true;
+
+			set<int>::const_iterator it;
+			int i, j, rank = 0;
+      bool flg;
+			xor_func * tmp = new xor_func[lst.size()];
+
+			for (i = 0, it = lst.begin(); it != lst.end(); it++, i++) {
+				tmp[i] = expnts[*it].second;
+			}
+
+      for (i = 0; i < length; i++) {
+        flg = false;
+        for (j = rank; j < lst.size(); j++) {
+          if (tmp[j].test(i)) {
+            // If we haven't yet seen a vector with bit i set...
+            if (!flg) {
+              // If it wasn't the first vector we tried, swap to the front
+              if (j != rank) swap(tmp[rank], tmp[j]);
+              flg = true;
+            } else {
+              tmp[j] ^= tmp[rank];
+            }
+          }
+        }
+        if (flg) rank++;
+      }
+
+			delete[] tmp;
+			return (num - lst.size()) >= (dim - rank);
+		}
+};
+
+dotqc character::synthesize() {
+  partitioning floats, frozen; 
+	dotqc ret;
+  xor_func mask(n + h, 0);      // Tells us what values we have prepared
+  xor_func wires[n + m];        // Current state of the wires
+  list<int> remaining;          // Which terms we still have to partition
+  matroid<exponent, ind_oracle> mat(phase_expts, ind_oracle(n + m, n, n + h));
+
+  // initialize some stuff
 	ret.n = n;
 	ret.m = m;
 	for (int i = 0; i < n + m; i++) {
 		ret.names.insert(names[i]);
-		if (i >= n) ret.zero[names[i]] = 1;
-		else ret.zero[names[i]] = 0;
-	}
+    wires[i] = xor_func(n + h, 0);
+    if (i < n) {
+      ret.zero[names[i]] = 0;
+      wires[i].set(i);
+      mask.set(i);
+    } else {
+      ret.zero[names[i]] = 1;
+    }
+  }
 
-//  for (ith = hadamards.begin(); ith != hadamards.end(); ith++) {
+  // initialize the remaining list
+  for (int i = 0; i < phase_expts.size(); i++) remaining.push_back(i);
+
+  // create an initial partition
+  cerr << "Adding new functions to the partition... " << flush;
+  for (list<int>::iterator it = remaining.begin(); it != remaining.end();) {
+    cout << *it << " ";
+    xor_func tmp = (~mask) & (phase_expts[*it].second);
+    if (tmp.none()) {
+      mat.add_to_partition(floats, *it);
+      it = remaining.erase(it);
+    } else it++;
+  }
+  cerr << floats << "\n" << flush;
+
+  for (list<Hadamard>::iterator it = hadamards.begin(); it != hadamards.end(); it++) {
     // 1. freeze partitions that are not disjoint from the hadamard input
     // 2. construct CNOT+T circuit
     // 3. apply the hadamard gate
     // 4. add new functions to the partition
 
-    /*
     cerr << "Freezing partitions... " << flush;
-    frozen = freeze_partitions(floats, ith->in);
+    frozen = freeze_partitions(floats, it->in);
     cerr << frozen << "\n" << flush;
 
     cerr << "Constructing {CNOT, T} subcircuit... " << flush;
-    circ = construct_circuit(frozen, wires, ith->state);
-    wires = ith->state;
+    //circ = construct_circuit(frozen, wires, ith->state);
+    //wires = it->state;
     cerr << "\n" << flush;
 
     cerr << "Applying Hadamard gate... " << flush;
-    circ.push_back(make_pair("H", list<string>(1, ith->qubit)));
-    wires[ith->qubit] = xor_func(n + h, ith->prep);
+    //circ.push_back(make_pair("H", list<string>(1, it->qubit)));
+    wires[it->qubit] = xor_func(n + h, it->prep);
+    mask.set(it->prep);
     cerr << "\n" << flush;
 
     cerr << "Adding new functions to the partition... " << flush;
-
+    for (list<int>::iterator it = remaining.begin(); it != remaining.end();) {
+      cout << *it << " ";
+      xor_func tmp = (~mask) & (phase_expts[*it].second);
+      if (tmp.none()) {
+        mat.add_to_partition(floats, *it);
+        it = remaining.erase(it);
+      } else it++;
+    }
     cerr << floats << "\n" << flush;
-*/
+  }
+
+  cerr << "Constructing final {CNOT, T} subcircuit... " << floats << "\n" << flush;
+  //circ = construct_circuit(frozen, wires, outputs);
 
     /*
     // Partition the phase exponents
@@ -359,7 +446,6 @@ dotqc character::synthesize() {
     ret.circ.splice(ret.circ.end(), net);
     cerr << "\n" << flush;
     */
- // }
 
   return ret;
 }

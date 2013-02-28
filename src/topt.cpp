@@ -193,6 +193,7 @@ compute_output_func(int n, int m, const xor_func * outputs, string * names) {
 	return uncompute;
 }
 
+/*
 class ind_oracle {
 	private: 
 		int dim;
@@ -220,3 +221,4 @@ class ind_oracle {
 			return (mx - lst.size()) >= (dim - rank);
 		}
 };
+*/
