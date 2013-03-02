@@ -51,11 +51,9 @@ class ind_oracle {
 int main() {
 	dotqc circuit;
 	circuit.input(cin);
-  circuit.print();
   character c;
   c.parse_circuit(circuit);
-  cout << "Done parsing\n" << flush;
-  c.print();
+  c.output(cerr);
 /*
   matroid<exponent, ind_oracle> mat(c.phase_expts, ind_oracle(c.n + c.h + c.m, c.n + c.h));
   partitioning part = mat.partition_matroid();
@@ -68,6 +66,7 @@ int main() {
   */
 
   dotqc synth = c.synthesize();
+  synth.print();
 
 	return 0;
 }

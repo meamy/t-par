@@ -2,6 +2,8 @@
 #include <deque>
 #include "partition.h"
 
+#include <assert.h>
+
 #ifndef MATROID
 #define MATROID
 
@@ -133,7 +135,7 @@ void repartition(partitioning & part, const vector<T> & elts, const oracle_type 
   list<int> acc;
 
   for (Si = part.begin(); Si != part.end(); Si++) {
-    if (!(oracle(elts, *Si))) {
+    while (!oracle(elts, *Si)) {
       yi = Si->begin();
       acc.push_back(*yi);
       Si->erase(yi);

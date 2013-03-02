@@ -1,17 +1,6 @@
 #include "topt.cpp"
 #include <algorithm>
 
-void print_wires(const xor_func * wires, int num, int dim) {
-  int i, j;
-  for (i = 0; i < num; i++) {
-    for (j = 0; j < dim; j++) {
-      if (wires[i].test(j)) cout << "1";
-      else                  cout << "0";
-    }
-    cout << "\n";
-  }
-}
-
 //----------------------------------------- DOTQC stuff
 
 void ignore_white(istream& in) {
@@ -289,60 +278,15 @@ void character::parse_circuit(dotqc & input) {
 
 //---------------------------- Synthesis
 
-class ind_oracle {
-	private: 
-		int num;
-		int dim;
-    int length;
-	public:
-    ind_oracle() { num = 0; dim = 0; length = 0; }
-		ind_oracle(int numin, int dimin, int lengthin) { num = numin; dim = dimin; length = lengthin; }
-
-    void set_dim(int newdim) { dim = newdim; }
-
-		bool operator()(const vector<exponent> & expnts, const set<int> & lst) const {
-			if (lst.size() > num) return false;
-			if (lst.size() == 1 || (num - lst.size()) >= dim) return true;
-
-			set<int>::const_iterator it;
-			int i, j, rank = 0;
-      bool flg;
-			xor_func * tmp = new xor_func[lst.size()];
-
-			for (i = 0, it = lst.begin(); it != lst.end(); it++, i++) {
-				tmp[i] = expnts[*it].second;
-			}
-
-      for (i = 0; i < length; i++) {
-        flg = false;
-        for (j = rank; j < lst.size(); j++) {
-          if (tmp[j].test(i)) {
-            // If we haven't yet seen a vector with bit i set...
-            if (!flg) {
-              // If it wasn't the first vector we tried, swap to the front
-              if (j != rank) swap(tmp[rank], tmp[j]);
-              flg = true;
-            } else {
-              tmp[j] ^= tmp[rank];
-            }
-          }
-        }
-        if (flg) rank++;
-      }
-
-			delete[] tmp;
-			return (num - lst.size()) >= (dim - rank);
-		}
-};
-
 dotqc character::synthesize() {
   partitioning floats, frozen; 
 	dotqc ret;
   xor_func mask(n + h, 0);      // Tells us what values we have prepared
   xor_func wires[n + m];        // Current state of the wires
   list<int> remaining;          // Which terms we still have to partition
-  int dim = n, tmp;
+  int dim = n, tmp, tdepth = 0;
   ind_oracle oracle(n + m, dim, n + h);
+  list<pair<string, list<string> > > circ;
 
   // initialize some stuff
 	ret.n = n;
@@ -358,7 +302,9 @@ dotqc character::synthesize() {
   }
 
   // initialize the remaining list
-  for (int i = 0; i < phase_expts.size(); i++) remaining.push_back(i);
+  for (int i = 0; i < phase_expts.size(); i++) {
+    if (phase_expts[i].first != 0) remaining.push_back(i);
+  }
 
   // create an initial partition
   cerr << "Adding new functions to the partition... " << flush;
@@ -379,17 +325,27 @@ dotqc character::synthesize() {
 
     cerr << "Freezing partitions... " << flush;
     frozen = freeze_partitions(floats, it->in);
+    for (partitioning::iterator it = frozen.begin(); it != frozen.end(); it++) {
+      for (set<int>::iterator ti = it->begin(); ti != it->end(); ti++) {
+        if ((phase_expts[*ti].first % 2) != 0) {
+          tdepth += 1;
+          break;
+        }
+      }
+    }
     cerr << frozen << "\n" << flush;
 
     cerr << "Constructing {CNOT, T} subcircuit... " << flush;
-    //circ = construct_circuit(frozen, wires, ith->state);
+    if (!frozen.empty()) {
+      ret.circ.splice(ret.circ.end(), construct_circuit(*this, frozen, wires, it->wires));
+    }
 	  for (int i = 0; i < n + m; i++) {
       wires[i] = it->wires[i];
     }
     cerr << "\n" << flush;
 
     cerr << "Applying Hadamard gate... " << flush;
-    //circ.push_back(make_pair("H", list<string>(1, it->qubit)));
+    ret.circ.push_back(make_pair("H", list<string>(1, names[it->qubit])));
     wires[it->qubit].reset();
     wires[it->qubit].set(it->prep);
     mask.set(it->prep);
@@ -418,6 +374,8 @@ dotqc character::synthesize() {
   }
 
   cerr << "Constructing final {CNOT, T} subcircuit... " << floats << "\n" << flush;
+  tdepth += floats.size();
+  cerr << "T-depth: " << tdepth << "\n" << flush;
   //circ = construct_circuit(frozen, wires, outputs);
 
     /*
