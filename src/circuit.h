@@ -33,6 +33,7 @@ struct dotqc {
 	void output(ostream& out);
 	void print() {output(cout);}
 	void clear() {n = 0; m = 0; names.clear(); zero.clear(); circ.clear();}
+  void remove_swaps();
 };
 
 struct character {

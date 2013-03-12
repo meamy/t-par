@@ -376,38 +376,54 @@ dotqc character::synthesize() {
   cerr << "Constructing final {CNOT, T} subcircuit... " << floats << "\n" << flush;
   tdepth += floats.size();
   cerr << "T-depth: " << tdepth << "\n" << flush;
-  //circ = construct_circuit(frozen, wires, outputs);
-
-    /*
-    // Partition the phase exponents
-    cerr << "Partitioning matroid... " << flush;
-    part = mat.partition_matroid();
-    cerr << part << "\n" << flush;
-
-    // Fill the partitions to have full rank
-    cerr << "Filling out missing rank... " << flush;
-    for (partitioning::iterator it = part.begin(); it != part.end(); it++) {
-      tmp = new vector<exponent>();
-      tmp->reserve(n + m);
-      for (set<int>::iterator ti = it->begin(); ti != it->end(); ti++) {
-        tmp->push_back(phase_expts[*ti]);
-      }
-      make_full_rank(n, m, *tmp);
-      basis.push_back(*tmp);
-      delete tmp;
-    }
-    cerr << "\n" << flush;
-
-    // Construct the new circuit
-    cerr << "Constructing circuit... " << flush;
-    for (list<vector<exponent> >::iterator it = basis.begin(); it != basis.end(); it++) {
-      net = compute_CNOT_network(n, m, *it, names);
-      ret.circ.splice(ret.circ.end(), net);
-    }
-    net = compute_output_func(n, m, outputs, names);
-    ret.circ.splice(ret.circ.end(), net);
-    cerr << "\n" << flush;
-    */
-
   return ret;
+}
+
+//----------- This will likely need to be finished to get reasonable CNOT networks
+void dotqc::remove_swaps() {
+  list<pair<string, list<string> > >::iterator it, tt, ttt;
+  list<string>::iterator iti;
+  string q1, q2;
+  bool flg;
+  int i;
+
+  for (it = circ.begin(), i = 0; i < circ.size() - 3;) {
+    flg = false;
+    if (it->first == "tof" && it->second.size() == 2) {
+      iti = it->second.begin();
+      q1 = *(iti++);
+      q2 = *iti;
+
+      tt = it;
+      tt++;
+      ttt = tt;
+      ttt++;
+      if (tt->first == "tof" && tt->second.size() == 2 && ttt->first == "tof" && ttt->second.size() == 2) {
+        flg = true;
+        iti = tt->second.begin();
+        flg &= *(iti++) == q2;
+        flg &= *(iti) == q1;
+        iti = ttt->second.begin();
+        flg &= *(iti++) == q1;
+        flg &= *(iti) == q2;
+
+        if (flg) {
+          circ.erase(it);
+          circ.erase(tt);
+          it = ttt = circ.erase(ttt);
+          while (ttt != circ.end()) {
+            for (iti = ttt->second.begin(); iti != ttt->second.end(); iti++) {
+              if (*iti == q1) *iti = q2;
+              else if (*iti == q2) *iti = q1;
+            }
+            ttt++;
+          }
+        }
+      }
+    }
+    if (!flg) {
+      i++;
+      it++;
+    }
+  }
 }

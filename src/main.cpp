@@ -66,6 +66,7 @@ int main() {
   */
 
   dotqc synth = c.synthesize();
+  synth.remove_swaps();
   synth.print();
 
 	return 0;
