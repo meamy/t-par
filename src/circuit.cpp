@@ -119,6 +119,7 @@ void character::output(ostream& out) {
 	for (it = phase_expts.begin(); it != phase_expts.end(); it++) {
 		if (it != phase_expts.begin()) out << "+";
 		out << (int)(it->first) << "*";
+    if (it->second.test(n + h)) out << "~";
 		for (i = 0; i < (n + h); i++) {
 			if (it->second.test(i)) out << names[val_map[i]];
 		}
@@ -129,6 +130,7 @@ void character::output(ostream& out) {
 	for (i = 0; i < (n + m); i++) {
 		flag = false;
 		out << "(";
+    if (outputs[i].test(n + h)) out << "~";
     for (j = 0; j < (n + h); j++) {
 			if (outputs[i].test(j)) {
 				if (flag) out << " ";
@@ -198,7 +200,7 @@ void character::parse_circuit(dotqc & input) {
     // zero mapping
     zero[name_max]  = input.zero[*it];
     // each wire has an initial value j, unless it starts in the 0 state
-    wires[name_max] = xor_func(n + h, 0);
+    wires[name_max] = xor_func(n + h + 1, 0);
     if (!zero[name_max]) {
       wires[name_max].set(val_max);
       val_map[val_max++] = name_max;
@@ -211,8 +213,10 @@ void character::parse_circuit(dotqc & input) {
 	list<pair<string,list<string> > >::iterator it;
 	for (it = input.circ.begin(); it != input.circ.end(); it++) {
 		flg = false;
-		if (it->first == "tof") {
+		if (it->first == "tof" && it->second.size() == 2) {
 			wires[name_map[*(++(it->second.begin()))]] ^= wires[name_map[*(it->second.begin())]];
+    } else if ((it->first == "tof" || it->first == "X") && it->second.size() == 1) {
+      wires[name_map[*(it->second.begin())]].flip(n + h);
 		} else if (it->first == "T" || it->first == "T*" || 
 				       it->first == "P" || it->first == "P*" || 
 							 (it->first == "Z" && it->second.size() == 1)) {
@@ -269,7 +273,7 @@ void character::parse_circuit(dotqc & input) {
       names[name_max++].append(to_string(new_h.prep));
 
 		} else {
-			cout << "ERROR: not a {CNOT, T} circuit\n";
+			cout << "ERROR: not a {H, CNOT, Z, P, T} circuit\n";
 			phase_expts.clear();
 			delete[] outputs;
 		}
@@ -281,20 +285,22 @@ void character::parse_circuit(dotqc & input) {
 dotqc character::synthesize() {
   partitioning floats, frozen; 
 	dotqc ret;
-  xor_func mask(n + h, 0);      // Tells us what values we have prepared
+  xor_func mask(n + h + 1, 0);      // Tells us what values we have prepared
   xor_func wires[n + m];        // Current state of the wires
   list<int> remaining;          // Which terms we still have to partition
   int dim = n, tmp, tdepth = 0;
   ind_oracle oracle(n + m, dim, n + h);
   list<pair<string, list<string> > > circ;
+  list<Hadamard>::iterator it;
 
   // initialize some stuff
 	ret.n = n;
 	ret.m = m;
+  mask.set(n + h);
 	for (int i = 0, j = 0; i < n + m; i++) {
 		ret.names.push_back(names[i]);
     ret.zero[names[i]] = zero[i];
-    wires[i] = xor_func(n + h, 0);
+    wires[i] = xor_func(n + h + 1, 0);
     if (!zero[i]) {
       wires[i].set(j);
       mask.set(j++);
@@ -317,7 +323,7 @@ dotqc character::synthesize() {
   }
   cerr << floats << "\n" << flush;
 
-  for (list<Hadamard>::iterator it = hadamards.begin(); it != hadamards.end(); it++) {
+  for (it = hadamards.begin(); it != hadamards.end(); it++) {
     // 1. freeze partitions that are not disjoint from the hadamard input
     // 2. construct CNOT+T circuit
     // 3. apply the hadamard gate
@@ -373,7 +379,12 @@ dotqc character::synthesize() {
     cerr << floats << "\n" << flush;
   }
 
-  cerr << "Constructing final {CNOT, T} subcircuit... " << floats << "\n" << flush;
+  cerr << "Constructing final {CNOT, T} subcircuit... " << floats << flush;
+  if (!floats.empty()) {
+    ret.circ.splice(ret.circ.end(), construct_circuit(*this, floats, wires, outputs));
+  }
+  cerr << "\n" << flush;
+
   tdepth += floats.size();
   cerr << "T-depth: " << tdepth << "\n" << flush;
   return ret;
@@ -387,7 +398,7 @@ void dotqc::remove_swaps() {
   bool flg;
   int i;
 
-  for (it = circ.begin(), i = 0; i < circ.size() - 3;) {
+  for (it = circ.begin(), i = 0; i < (circ.size() - 3);) {
     flg = false;
     if (it->first == "tof" && it->second.size() == 2) {
       iti = it->second.begin();

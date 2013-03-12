@@ -73,6 +73,16 @@ list<pair<string, list<string> > > swap_com(int a, int b, string * names) {
   return ret;
 }
 
+list<pair<string, list<string> > > x_com(int a, string * names) {
+  list<pair<string, list<string> > > ret;
+	list<string> tmp_list;
+
+  tmp_list.push_back(names[a]);
+  ret.push_back(make_pair("tof", tmp_list));
+
+  return ret;
+}
+
 // Make echelon form
 list<pair<string, list<string> > > 
 to_echelon(int m, int n, xor_func * bits, string * names) {
@@ -80,6 +90,13 @@ to_echelon(int m, int n, xor_func * bits, string * names) {
 	int k, i, j;
 	int rank = 0;
 	bool flg;
+
+  for (j = 0; j < m; j++) {
+    if (bits[j].test(n)) {
+      acc.splice(acc.end(), x_com(j, names));
+      bits[j].reset(n);
+    }
+  }
 
 	// Make triangular
 	for (i = 0; i < n; i++) {
@@ -309,6 +326,7 @@ construct_circuit(const character & circ, const partitioning & part, xor_func * 
     }
     
     // prepare the bits
+  assert(bits[0].size() == (circ.n + circ.h + 1));
     tmp = to_echelon(it->size(), circ.n + circ.h, bits, circ.names);
     tmp.splice(tmp.end(), fix_basis(circ.n + circ.m, circ.n + circ.h, it->size(), in, bits, circ.names));
     rev = tmp;
