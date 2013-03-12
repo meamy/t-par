@@ -87,6 +87,46 @@ void dotqc::output(ostream& out) {
 	out << "END\n";
 }
 
+// Gather statistics and print
+void dotqc::print_stats() {
+	int H = 0;
+	int cnot = 0;
+	int X = 0;
+	int T = 0;
+	int P = 0;
+	int Z = 0;
+	int tdepth = 0;
+	bool tlayer = false;
+	list<pair<string, list<string> > >::iterator ti;
+
+	for (ti = circ.begin(); ti != circ.end(); ti++) {
+		if (ti->first == "T" || ti->first == "T*") {
+			T++;
+			if (!tlayer) {
+				tlayer = true;
+				tdepth++;
+			}
+    } else if (ti->first == "P" || ti->first == "P*") P++;
+		else if (ti->first == "Z") Z++;
+		else {
+      if (ti->first == "tof" && ti->second.size() == 2) cnot++;
+      else if (ti->first == "tof" || ti->first == "X") X++;
+      else if (ti->first == "H") H++;
+
+			if (tlayer) tlayer = false;
+		}
+	}
+
+	cout << "H: " << H << "\n";
+	cout << "cnot: " << cnot << "\n";
+	cout << "X: " << X << "\n";
+	cout << "T: " << T << "\n";
+	cout << "P: " << P << "\n";
+	cout << "Z: " << Z << "\n";
+	cout << "tdepth: " << tdepth << "\n";
+
+}
+
 // Count the Hadamard gates
 int count_h(dotqc & qc) {
   int ret = 0;
@@ -98,6 +138,7 @@ int count_h(dotqc & qc) {
 
   return ret;
 }
+
 
 //-------------------------------------- End of DOTQC stuff
 
@@ -331,20 +372,12 @@ dotqc character::synthesize() {
 
     cerr << "Freezing partitions... " << flush;
     frozen = freeze_partitions(floats, it->in);
-    for (partitioning::iterator it = frozen.begin(); it != frozen.end(); it++) {
-      for (set<int>::iterator ti = it->begin(); ti != it->end(); ti++) {
-        if ((phase_expts[*ti].first % 2) != 0) {
-          tdepth += 1;
-          break;
-        }
-      }
-    }
     cerr << frozen << "\n" << flush;
 
     cerr << "Constructing {CNOT, T} subcircuit... " << flush;
-    if (!frozen.empty()) {
+//    if (!frozen.empty()) {
       ret.circ.splice(ret.circ.end(), construct_circuit(*this, frozen, wires, it->wires));
-    }
+ //   }
 	  for (int i = 0; i < n + m; i++) {
       wires[i] = it->wires[i];
     }
@@ -380,13 +413,11 @@ dotqc character::synthesize() {
   }
 
   cerr << "Constructing final {CNOT, T} subcircuit... " << floats << flush;
-  if (!floats.empty()) {
+//  if (!floats.empty()) {
     ret.circ.splice(ret.circ.end(), construct_circuit(*this, floats, wires, outputs));
-  }
+ // }
   cerr << "\n" << flush;
 
-  tdepth += floats.size();
-  cerr << "T-depth: " << tdepth << "\n" << flush;
   return ret;
 }
 

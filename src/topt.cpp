@@ -138,7 +138,7 @@ fix_basis(int m, int n, int k, const xor_func * fst, const xor_func * snd, strin
 	xor_func * tmp = new xor_func[m];
 	for(int i = 0; i < m; i++) {
     if (i < k) tmp[i] = snd[i];
-    else       tmp[i] = xor_func(n, 0);
+    else       tmp[i] = xor_func(n + 1, 0);
 	}
 
   // First pass makes sure tmp has the same pivots as fst
@@ -313,6 +313,10 @@ construct_circuit(const character & circ, const partitioning & part, xor_func * 
   xor_func * bits;
   set<int>::iterator ti;
   int i;
+  bool flg = true;
+
+  for (i = 0; i < circ.n + circ.m; i++) flg &= in[i] == out[i];
+  if (flg && (part.size() == 0)) return ret;
 
   // Reduce in to echelon form to decide on a basis
   ret.splice(ret.end(), to_echelon(circ.n + circ.m, circ.n + circ.h, in, circ.names));
@@ -326,7 +330,6 @@ construct_circuit(const character & circ, const partitioning & part, xor_func * 
     }
     
     // prepare the bits
-  assert(bits[0].size() == (circ.n + circ.h + 1));
     tmp = to_echelon(it->size(), circ.n + circ.h, bits, circ.names);
     tmp.splice(tmp.end(), fix_basis(circ.n + circ.m, circ.n + circ.h, it->size(), in, bits, circ.names));
     rev = tmp;
