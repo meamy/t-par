@@ -315,7 +315,7 @@ construct_circuit(const character & circ, const partitioning & part, xor_func * 
   int i;
   bool flg = true;
 
-  for (i = 0; i < circ.n + circ.m; i++) flg &= in[i] == out[i];
+  for (i = 0; i < circ.n + circ.m; i++) flg &= (in[i] == out[i]);
   if (flg && (part.size() == 0)) return ret;
 
   // Reduce in to echelon form to decide on a basis

@@ -117,13 +117,13 @@ void dotqc::print_stats() {
 		}
 	}
 
-	cout << "H: " << H << "\n";
-	cout << "cnot: " << cnot << "\n";
-	cout << "X: " << X << "\n";
-	cout << "T: " << T << "\n";
-	cout << "P: " << P << "\n";
-	cout << "Z: " << Z << "\n";
-	cout << "tdepth: " << tdepth << "\n";
+	cout << "# H: " << H << "\n";
+	cout << "# cnot: " << cnot << "\n";
+	cout << "# X: " << X << "\n";
+	cout << "# T: " << T << "\n";
+	cout << "# P: " << P << "\n";
+	cout << "# Z: " << Z << "\n";
+	cout << "# tdepth: " << tdepth << "\n";
 
 }
 
