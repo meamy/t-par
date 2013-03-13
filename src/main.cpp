@@ -17,6 +17,7 @@ int main() {
 //	cout << fixed << setprecision(3);
 //	cout << "Time: " << (end.tv_sec + (double)end.tv_nsec/1000000000) - (start.tv_sec + (double)start.tv_nsec/1000000000) << " s\n";
   synth.remove_swaps();
+  synth.remove_ids();
 	synth.print_stats();
   synth.print();
 

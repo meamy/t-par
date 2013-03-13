@@ -35,6 +35,7 @@ struct dotqc {
 	void clear() {n = 0; m = 0; names.clear(); zero.clear(); circ.clear();}
   void remove_swaps();
   void print_stats();
+  void remove_ids();
 };
 
 struct character {

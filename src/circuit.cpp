@@ -469,3 +469,74 @@ void dotqc::remove_swaps() {
     }
   }
 }
+
+//--------- Opt
+
+int list_compare(const list<string> & a, const list<string> & b) {
+  list<string>::const_iterator it, ti;
+  bool disjoint = true, equal = true, elt, strongelt;
+  int i = a.size(), j = b.size();
+
+  for (it = a.begin(), i = 0; i < a.size(); i++, it++) {
+    elt = false;
+    strongelt = false;
+    for (ti = b.begin(), j = 0; j < b.size(); j++, ti++) {
+      if (*it == *ti) {
+        elt = true;
+        disjoint = false;
+        if (i == j) {
+          strongelt = true;
+        }
+      }
+    }
+    if (!strongelt) equal = false;
+  }
+
+  if (equal) return 3;
+  else if (!disjoint) return 2;
+  else return 1;
+}
+
+void dotqc::remove_ids() {
+  list<pair<string, list<string> > >::iterator it, ti;
+  bool mod = true, flg = true;
+  int i;
+  map<string, string> ids;
+
+  ids["tof"] = "tof";
+  ids["Z"] = "Z";
+  ids["H"] = "H";
+  ids["P"] = "P*";
+  ids["P*"] = "P";
+  ids["T"] = "T*";
+  ids["T*"] = "T";
+
+  while (mod) {
+    mod = false;
+    for (it = circ.begin(); it != circ.end(); it++) {
+      flg = false;
+      ti = it;
+      ti++;
+      for (; ti != circ.end() && !flg; ti++) {
+        i = list_compare(it->second, ti->second);
+ //       cout << i << "\n";
+        switch (i) {
+          case 3:
+//            cout << it->first << " " << ti->first << "\n";
+            if (ids[it->first] == ti->first) {
+              ti = circ.erase(ti);
+              it = circ.erase(it);
+              mod = true;
+            }
+            flg = true;
+            break;
+          case 2:
+            flg = true;
+            break;
+          default:
+            break;
+        }
+      }
+    }
+  }
+}
