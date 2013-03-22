@@ -1,4 +1,5 @@
-#include "circuit.h"
+#include "util.h"
+#include <map>
 
 void print_wires(const xor_func * wires, int num, int dim) {
   int i, j;
@@ -10,7 +11,6 @@ void print_wires(const xor_func * wires, int num, int dim) {
     cout << "\n";
   }
 }
-
 
 // Make triangular to determine the rank
 int compute_rank(int m, int n, const xor_func * bits) {
@@ -47,9 +47,9 @@ int compute_rank(int m, int n, const xor_func * bits) {
 }
 
 // Commands for making certain circuits
-list<pair<string, list<string> > > xor_com(int a, int b, string * names) {
+gatelist xor_com(int a, int b, const string * names) {
 	list<string> tmp_list;
-  list<pair<string, list<string> > > ret;
+  gatelist ret;
 
 	tmp_list.push_back(names[a]);
 	tmp_list.push_back(names[b]);
@@ -58,9 +58,9 @@ list<pair<string, list<string> > > xor_com(int a, int b, string * names) {
   return ret;
 }
 
-list<pair<string, list<string> > > swap_com(int a, int b, string * names) {
+gatelist swap_com(int a, int b, const string * names) {
 	list<string> tmp_list1, tmp_list2;
-  list<pair<string, list<string> > > ret;
+  gatelist ret;
 
 	tmp_list1.push_back(names[a]);
 	tmp_list1.push_back(names[b]);
@@ -73,8 +73,8 @@ list<pair<string, list<string> > > swap_com(int a, int b, string * names) {
   return ret;
 }
 
-list<pair<string, list<string> > > x_com(int a, string * names) {
-  list<pair<string, list<string> > > ret;
+gatelist x_com(int a, const string * names) {
+  gatelist ret;
 	list<string> tmp_list;
 
   tmp_list.push_back(names[a]);
@@ -84,9 +84,8 @@ list<pair<string, list<string> > > x_com(int a, string * names) {
 }
 
 // Make echelon form
-list<pair<string, list<string> > > 
-to_echelon(int m, int n, xor_func * bits, string * names) {
-  list<pair<string, list<string> > > acc;
+gatelist to_echelon(int m, int n, xor_func * bits, const string * names) {
+  gatelist acc;
 	int k, i, j;
 	int rank = 0;
 	bool flg;
@@ -126,8 +125,7 @@ to_echelon(int m, int n, xor_func * bits, string * names) {
 
 // Expects two matrices in echelon form, the second being a subset of the 
 //   rowspace of the first. It then morphs the second matrix into the first
-list<pair<string, list<string> > > 
-fix_basis(int m, int n, int k, const xor_func * fst, const xor_func * snd, string * names) {
+gatelist fix_basis(int m, int n, int k, const xor_func * fst, const xor_func * snd, const string * names) {
   list<pair<string, list<string> > > acc;
   int j = 0;
   bool flg;
@@ -198,9 +196,9 @@ fix_basis(int m, int n, int k, const xor_func * fst, const xor_func * snd, strin
 }
 
 // Synthesize a circuit computing "bits" by gaussian elimination
-list<pair<string, list<string> > > gauss_circuit(int n, int m, xor_func * bits, string * names) {
+gatelist gauss_circuit(int n, int m, xor_func * bits, string * names) {
 	int i, j, k;
-	list<pair<string, list<string> > > lst;
+	gatelist lst;
 	list<string> tmp_list1, tmp_list2;
 
 	// Make triangular
@@ -255,8 +253,7 @@ list<pair<string, list<string> > > gauss_circuit(int n, int m, xor_func * bits, 
 	return lst;
 }
 
-list<pair<string, list<string> > > 
-compute_CNOT_network(int n, int m, const vector<exponent> & expnts, string * names) {
+gatelist compute_CNOT_network(int n, int m, const vector<exponent> & expnts, string * names) {
 	int i, j;
 
 	// Make a copy of the bitset
@@ -266,9 +263,9 @@ compute_CNOT_network(int n, int m, const vector<exponent> & expnts, string * nam
 	}
 
 	// Uncompute cnot network
-	list<pair<string, list<string> > > uncompute = gauss_circuit(n, m, tmp, names);
+	gatelist uncompute = gauss_circuit(n, m, tmp, names);
 	// Compute cnot network
-	list<pair<string, list<string> > > compute = uncompute;
+	gatelist compute = uncompute;
 	compute.reverse();
 
 	list<string> tmp_lst;
@@ -291,8 +288,7 @@ compute_CNOT_network(int n, int m, const vector<exponent> & expnts, string * nam
 	return compute;
 }
 
-list<pair<string, list<string> > > 
-compute_output_func(int n, int m, const xor_func * outputs, string * names) {
+gatelist compute_output_func(int n, int m, const xor_func * outputs, string * names) {
 	int i, j;
 
 	// Make a copy of the bitset
@@ -301,37 +297,42 @@ compute_output_func(int n, int m, const xor_func * outputs, string * names) {
 		tmp[i] = outputs[i];
 	}
 	// Uncompute cnot network
-	list<pair<string, list<string> > > uncompute = gauss_circuit(n, m, tmp, names);
+	gatelist uncompute = gauss_circuit(n, m, tmp, names);
 
 	delete[] tmp;
 	return uncompute;
 }
 
-list<pair<string, list<string> > > 
-construct_circuit(const character & circ, const partitioning & part, xor_func * in, const xor_func * out) {
-  list<pair<string, list<string> > > ret, tmp, rev;
+gatelist construct_circuit(const vector<exponent> & phase, 
+                           const partitioning & part, 
+                           xor_func * in, 
+                           const xor_func * out,
+                           int num,
+                           int dim,
+                           const string * names) {
+  gatelist ret, tmp, rev;
   xor_func * bits;
   set<int>::iterator ti;
   int i;
   bool flg = true;
 
-  for (i = 0; i < circ.n + circ.m; i++) flg &= (in[i] == out[i]);
+  for (i = 0; i < num; i++) flg &= (in[i] == out[i]);
   if (flg && (part.size() == 0)) return ret;
 
   // Reduce in to echelon form to decide on a basis
-  ret.splice(ret.end(), to_echelon(circ.n + circ.m, circ.n + circ.h, in, circ.names));
+  ret.splice(ret.end(), to_echelon(num, dim, in, names));
 
   // For each partition... Compute *it, apply T gates, uncompute
   for (partitioning::const_iterator it = part.begin(); it != part.end(); it++) {
 
     bits = new xor_func[it->size()];
     for (ti = it->begin(), i = 0; ti != it->end(); ti++, i++) {
-      bits[i] = circ.phase_expts[*ti].second;
+      bits[i] = phase[*ti].second;
     }
     
     // prepare the bits
-    tmp = to_echelon(it->size(), circ.n + circ.h, bits, circ.names);
-    tmp.splice(tmp.end(), fix_basis(circ.n + circ.m, circ.n + circ.h, it->size(), in, bits, circ.names));
+    tmp = to_echelon(it->size(), dim, bits, names);
+    tmp.splice(tmp.end(), fix_basis(num, dim, it->size(), in, bits, names));
     rev = tmp;
     rev.reverse();
     ret.splice(ret.end(), rev);
@@ -340,15 +341,14 @@ construct_circuit(const character & circ, const partitioning & part, xor_func * 
 	  list<string> tmp_lst;
     for (ti = it->begin(), i = 0; ti != it->end(); ti++, i++) {
 		  tmp_lst.clear();
-		  tmp_lst.push_back(circ.names[i]);
-		  if (circ.phase_expts[*ti].first <= 4) {
-			  if (circ.phase_expts[*ti].first / 4 == 1) ret.push_back(make_pair("Z", tmp_lst));
-			  if (circ.phase_expts[*ti].first / 2 == 1) ret.push_back(make_pair("P", tmp_lst));
-			  if (circ.phase_expts[*ti].first % 2 == 1) ret.push_back(make_pair("T", tmp_lst));
+		  tmp_lst.push_back(names[i]);
+		  if (phase[*ti].first <= 4) {
+			  if (phase[*ti].first / 4 == 1) ret.push_back(make_pair("Z", tmp_lst));
+			  if (phase[*ti].first / 2 == 1) ret.push_back(make_pair("P", tmp_lst));
+			  if (phase[*ti].first % 2 == 1) ret.push_back(make_pair("T", tmp_lst));
 		  } else {
-			  if (circ.phase_expts[*ti].first == 5 
-             || circ.phase_expts[*ti].first == 6) ret.push_back(make_pair("P", tmp_lst));
-			  if (circ.phase_expts[*ti].first % 2 == 1) ret.push_back(make_pair("T*", tmp_lst));
+			  if (phase[*ti].first == 5 || phase[*ti].first == 6) ret.push_back(make_pair("P", tmp_lst));
+			  if (phase[*ti].first % 2 == 1) ret.push_back(make_pair("T*", tmp_lst));
 		  }
 	  }
 
@@ -359,12 +359,12 @@ construct_circuit(const character & circ, const partitioning & part, xor_func * 
   }
 
   // Reduce out to the basis of in
-  bits = new xor_func[circ.n + circ.m];
-  for (i = 0; i < circ.n + circ.m; i++) {
+  bits = new xor_func[num];
+  for (i = 0; i < num; i++) {
     bits[i] = out[i];
   }
-  tmp = to_echelon(circ.n + circ.m, circ.n + circ.h, bits, circ.names);
-  tmp.splice(tmp.end(), fix_basis(circ.n + circ.m, circ.n + circ.h, circ.n + circ.m, in, bits, circ.names));
+  tmp = to_echelon(num, dim, bits, names);
+  tmp.splice(tmp.end(), fix_basis(num, dim, num, in, bits, names));
   tmp.reverse();
   ret.splice(ret.end(), tmp);
   delete [] bits;
@@ -372,48 +372,36 @@ construct_circuit(const character & circ, const partitioning & part, xor_func * 
   return ret;
 }
 
-class ind_oracle {
-	private: 
-		int num;
-		int dim;
-    int length;
-	public:
-    ind_oracle() { num = 0; dim = 0; length = 0; }
-		ind_oracle(int numin, int dimin, int lengthin) { num = numin; dim = dimin; length = lengthin; }
+bool ind_oracle::operator()(const vector<exponent> & expnts, const set<int> & lst) const {
+  if (lst.size() > num) return false;
+  if (lst.size() == 1 || (num - lst.size()) >= dim) return true;
 
-    void set_dim(int newdim) { dim = newdim; }
+  set<int>::const_iterator it;
+  int i, j, rank = 0;
+  bool flg;
+  xor_func * tmp = new xor_func[lst.size()];
 
-		bool operator()(const vector<exponent> & expnts, const set<int> & lst) const {
-			if (lst.size() > num) return false;
-			if (lst.size() == 1 || (num - lst.size()) >= dim) return true;
+  for (i = 0, it = lst.begin(); it != lst.end(); it++, i++) {
+    tmp[i] = expnts[*it].second;
+  }
 
-			set<int>::const_iterator it;
-			int i, j, rank = 0;
-      bool flg;
-			xor_func * tmp = new xor_func[lst.size()];
-
-			for (i = 0, it = lst.begin(); it != lst.end(); it++, i++) {
-				tmp[i] = expnts[*it].second;
-			}
-
-      for (i = 0; i < length; i++) {
-        flg = false;
-        for (j = rank; j < lst.size(); j++) {
-          if (tmp[j].test(i)) {
-            // If we haven't yet seen a vector with bit i set...
-            if (!flg) {
-              // If it wasn't the first vector we tried, swap to the front
-              if (j != rank) swap(tmp[rank], tmp[j]);
-              flg = true;
-            } else {
-              tmp[j] ^= tmp[rank];
-            }
-          }
+  for (i = 0; i < length; i++) {
+    flg = false;
+    for (j = rank; j < lst.size(); j++) {
+      if (tmp[j].test(i)) {
+        // If we haven't yet seen a vector with bit i set...
+        if (!flg) {
+          // If it wasn't the first vector we tried, swap to the front
+          if (j != rank) swap(tmp[rank], tmp[j]);
+          flg = true;
+        } else {
+          tmp[j] ^= tmp[rank];
         }
-        if (flg) rank++;
       }
+    }
+    if (flg) rank++;
+  }
 
-			delete[] tmp;
-			return (num - lst.size()) >= (dim - rank);
-		}
-};
+  delete[] tmp;
+  return (num - lst.size()) >= (dim - rank);
+}
