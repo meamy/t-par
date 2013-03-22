@@ -1,4 +1,4 @@
-#include "topt.cpp"
+#include "circuit.h"
 #include <algorithm>
 
 //----------------------------------------- DOTQC stuff
@@ -60,7 +60,7 @@ void dotqc::input(istream& in) {
 void dotqc::output(ostream& out) {
 	int i;
 	list<string>::iterator name_it;
-	list<pair<string, list<string> > >::iterator it; 
+	gatelist::iterator it; 
 	list<string>::iterator ti;
 
 	// Inputs
@@ -97,7 +97,7 @@ void dotqc::print_stats() {
 	int Z = 0;
 	int tdepth = 0;
 	bool tlayer = false;
-	list<pair<string, list<string> > >::iterator ti;
+	gatelist::iterator ti;
 
 	for (ti = circ.begin(); ti != circ.end(); ti++) {
 		if (ti->first == "T" || ti->first == "T*") {
@@ -139,6 +139,137 @@ int count_h(dotqc & qc) {
   return ret;
 }
 
+bool find_name(const list<string> & names, const string & name) {
+  list<string>::const_iterator it;
+  for (it = names.begin(); it != names.end(); it++) {
+    if (*it == name) return true;
+  }
+  return false;
+}
+
+void dotqc::append(pair<string, list<string> > gate) {
+	circ.push_back(gate);
+
+	for (list<string>::iterator it = gate.second.begin(); it != gate.second.end(); it++) {
+		if (!find_name(names, *it)) names.push_back(*it);
+	}
+}
+
+// Optimizations
+void dotqc::remove_swaps() {
+  gatelist::iterator it, tt, ttt;
+  list<string>::iterator iti;
+  string q1, q2;
+  bool flg;
+  int i;
+
+  for (it = circ.begin(), i = 0; i < (circ.size() - 3);) {
+    flg = false;
+    if (it->first == "tof" && it->second.size() == 2) {
+      iti = it->second.begin();
+      q1 = *(iti++);
+      q2 = *iti;
+
+      tt = it;
+      tt++;
+      ttt = tt;
+      ttt++;
+      if (tt->first == "tof" && tt->second.size() == 2 && ttt->first == "tof" && ttt->second.size() == 2) {
+        flg = true;
+        iti = tt->second.begin();
+        flg &= *(iti++) == q2;
+        flg &= *(iti) == q1;
+        iti = ttt->second.begin();
+        flg &= *(iti++) == q1;
+        flg &= *(iti) == q2;
+
+        if (flg) {
+          circ.erase(it);
+          circ.erase(tt);
+          it = ttt = circ.erase(ttt);
+          while (ttt != circ.end()) {
+            for (iti = ttt->second.begin(); iti != ttt->second.end(); iti++) {
+              if (*iti == q1) *iti = q2;
+              else if (*iti == q2) *iti = q1;
+            }
+            ttt++;
+          }
+        }
+      }
+    }
+    if (!flg) {
+      i++;
+      it++;
+    }
+  }
+}
+
+int list_compare(const list<string> & a, const list<string> & b) {
+  list<string>::const_iterator it, ti;
+  bool disjoint = true, equal = true, elt, strongelt;
+  int i = a.size(), j = b.size();
+
+  for (it = a.begin(), i = 0; i < a.size(); i++, it++) {
+    elt = false;
+    strongelt = false;
+    for (ti = b.begin(), j = 0; j < b.size(); j++, ti++) {
+      if (*it == *ti) {
+        elt = true;
+        disjoint = false;
+        if (i == j) {
+          strongelt = true;
+        }
+      }
+    }
+    if (!strongelt) equal = false;
+  }
+
+  if (equal) return 3;
+  else if (!disjoint) return 2;
+  else return 1;
+}
+
+void dotqc::remove_ids() {
+  gatelist::iterator it, ti;
+  bool mod = true, flg = true;
+  int i;
+  map<string, string> ids;
+
+  ids["tof"] = "tof";
+  ids["Z"] = "Z";
+  ids["H"] = "H";
+  ids["P"] = "P*";
+  ids["P*"] = "P";
+  ids["T"] = "T*";
+  ids["T*"] = "T";
+
+  while (mod) {
+    mod = false;
+    for (it = circ.begin(); it != circ.end(); it++) {
+      flg = false;
+      ti = it;
+      ti++;
+      for (; ti != circ.end() && !flg; ti++) {
+        i = list_compare(it->second, ti->second);
+        switch (i) {
+          case 3:
+            if (ids[it->first] == ti->first) {
+              ti = circ.erase(ti);
+              it = circ.erase(it);
+              mod = true;
+            }
+            flg = true;
+            break;
+          case 2:
+            flg = true;
+            break;
+          default:
+            break;
+        }
+      }
+    }
+  }
+}
 
 //-------------------------------------- End of DOTQC stuff
 
@@ -185,17 +316,7 @@ void character::output(ostream& out) {
 
   // Print the Hadamards:
   for (list<Hadamard>::iterator ti = hadamards.begin(); ti != hadamards.end(); ti++) {
-    out << "H:" << names[ti->qubit] << "-->" << ti->prep << " | ";
-    /*
-    for (set<int>::iterator iti = ti->in.begin(); iti != ti->in.end(); iti++) {
-      for (int i = 0; i < n + h; i++) {
-        if (phase_expts[*iti].second.test(i)) out << 1;
-        else out << 0;
-      }
-      out << " | ";
-    }
-    */
-    out << "\n";
+    out << "H:" << names[ti->qubit] << "-->" << ti->prep << "\n";
   }
 }
 
@@ -214,7 +335,7 @@ void insert_phase (unsigned char c, xor_func f, vector<exponent> & phases) {
 }
 
 // Parse a {CNOT, T} circuit
-// NOTE: a qubit's number is NOT the same as the bit it begins with set
+// NOTE: a qubit's number is NOT the same as the bit it's value represents
 void character::parse_circuit(dotqc & input) {
 	int i, j, a, b, c, name_max = 0, val_max = 0;
 	n = input.n;
@@ -251,7 +372,7 @@ void character::parse_circuit(dotqc & input) {
 
 	bool flg;
 
-	list<pair<string,list<string> > >::iterator it;
+	gatelist::iterator it;
 	for (it = input.circ.begin(); it != input.circ.end(); it++) {
 		flg = false;
 		if (it->first == "tof" && it->second.size() == 2) {
@@ -375,9 +496,8 @@ dotqc character::synthesize() {
     cerr << frozen << "\n" << flush;
 
     cerr << "Constructing {CNOT, T} subcircuit... " << flush;
-//    if (!frozen.empty()) {
-      ret.circ.splice(ret.circ.end(), construct_circuit(*this, frozen, wires, it->wires));
- //   }
+    ret.circ.splice(ret.circ.end(), 
+                    construct_circuit(phase_expts, frozen, wires, it->wires, n + m, n + h, names));
 	  for (int i = 0; i < n + m; i++) {
       wires[i] = it->wires[i];
     }
@@ -413,130 +533,132 @@ dotqc character::synthesize() {
   }
 
   cerr << "Constructing final {CNOT, T} subcircuit... " << floats << flush;
-//  if (!floats.empty()) {
-    ret.circ.splice(ret.circ.end(), construct_circuit(*this, floats, wires, outputs));
- // }
+  ret.circ.splice(ret.circ.end(), 
+                  construct_circuit(phase_expts, floats, wires, outputs, n + m, n + h, names));
   cerr << "\n" << flush;
 
   return ret;
 }
 
-//----------- This will likely need to be finished to get reasonable CNOT networks
-void dotqc::remove_swaps() {
-  list<pair<string, list<string> > >::iterator it, tt, ttt;
-  list<string>::iterator iti;
-  string q1, q2;
-  bool flg;
-  int i;
+//-------------------------------- {CNOT, T} version code
 
-  for (it = circ.begin(), i = 0; i < (circ.size() - 3);) {
-    flg = false;
-    if (it->first == "tof" && it->second.size() == 2) {
-      iti = it->second.begin();
-      q1 = *(iti++);
-      q2 = *iti;
+void metacircuit::partition_dotqc(dotqc & input) {
+	list<pair<string, list<string> > >::iterator it;
+	list<string>::iterator iti;
+	map<string, bool>::iterator ti;
+	circuit_type current = UNKNOWN;
 
-      tt = it;
-      tt++;
-      ttt = tt;
-      ttt++;
-      if (tt->first == "tof" && tt->second.size() == 2 && ttt->first == "tof" && ttt->second.size() == 2) {
-        flg = true;
-        iti = tt->second.begin();
-        flg &= *(iti++) == q2;
-        flg &= *(iti) == q1;
-        iti = ttt->second.begin();
-        flg &= *(iti++) == q1;
-        flg &= *(iti) == q2;
+	n = input.n;
+	m = input.m;
+	circuit_list.clear();
+	names = input.names;
+	zero  = input.zero;
 
-        if (flg) {
-          circ.erase(it);
-          circ.erase(tt);
-          it = ttt = circ.erase(ttt);
-          while (ttt != circ.end()) {
-            for (iti = ttt->second.begin(); iti != ttt->second.end(); iti++) {
-              if (*iti == q1) *iti = q2;
-              else if (*iti == q2) *iti = q1;
-            }
-            ttt++;
-          }
-        }
-      }
-    }
-    if (!flg) {
-      i++;
-      it++;
-    }
-  }
+	dotqc acc;
+	map<string, bool> zero_acc = input.zero;
+
+	acc.zero = zero_acc;
+	for (it = input.circ.begin(); it != input.circ.end(); it++) {
+		if ((it->first == "T"   && it->second.size() == 1) ||
+				(it->first == "T*"  && it->second.size() == 1) ||
+				(it->first == "P"   && it->second.size() == 1) ||
+				(it->first == "P*"  && it->second.size() == 1) ||
+        (it->first == "X"   && it->second.size() == 1) ||
+				(it->first == "Z"   && (it->second.size() == 1 || it->second.size() == 3)) ||
+				(it->first == "tof" && (it->second.size() == 1 || it->second.size() == 2))) {
+			if (current == UNKNOWN) {
+				current = CNOTT;
+			} else if (current != CNOTT) {
+				acc.n = acc.m = 0;
+				for (ti = acc.zero.begin(); ti != acc.zero.end(); ti++) {
+					if (ti->second) {
+						acc.m += 1;
+						if (!find_name(acc.names, ti->first)) acc.names.push_back(ti->first);
+					}
+				}
+				acc.n = acc.names.size() - acc.m;
+				circuit_list.push_back(make_pair(current, acc));
+
+				acc.clear();
+				acc.zero = zero_acc;
+				current = CNOTT;
+			}
+		} else {
+			if (current == UNKNOWN) {
+				current = OTHER;
+			} else if (current != OTHER) {
+				acc.n = acc.m = 0;
+				for (ti = acc.zero.begin(); ti != acc.zero.end(); ti++) {
+					if (ti->second) {
+						acc.m += 1;
+						if (!find_name(acc.names, ti->first)) acc.names.push_back(ti->first);
+					}
+				}
+				acc.n = acc.names.size() - acc.m;
+				circuit_list.push_back(make_pair(current, acc));
+
+				acc.clear();
+				acc.zero = zero_acc;
+				current = OTHER;
+			}
+		}
+		for (iti = it->second.begin(); iti != it->second.end(); iti++) {
+			zero_acc[*iti] = false;
+		}
+		acc.append(*it);
+	}
+
+	acc.n = acc.m = 0;
+	for (ti = acc.zero.begin(); ti != acc.zero.end(); ti++) {
+		if (ti->second) {
+			acc.m += 1;
+			if (!find_name(acc.names, ti->first)) acc.names.push_back(ti->first);
+		}
+	}
+	acc.n = acc.names.size() - acc.m;
+	circuit_list.push_back(make_pair(current, acc));
 }
 
-//--------- Opt
-
-int list_compare(const list<string> & a, const list<string> & b) {
-  list<string>::const_iterator it, ti;
-  bool disjoint = true, equal = true, elt, strongelt;
-  int i = a.size(), j = b.size();
-
-  for (it = a.begin(), i = 0; i < a.size(); i++, it++) {
-    elt = false;
-    strongelt = false;
-    for (ti = b.begin(), j = 0; j < b.size(); j++, ti++) {
-      if (*it == *ti) {
-        elt = true;
-        disjoint = false;
-        if (i == j) {
-          strongelt = true;
-        }
-      }
-    }
-    if (!strongelt) equal = false;
-  }
-
-  if (equal) return 3;
-  else if (!disjoint) return 2;
-  else return 1;
+void metacircuit::output(ostream& out) {
+	list<pair<circuit_type, dotqc> >::iterator it;
+	for (it = circuit_list.begin(); it != circuit_list.end(); it++) {
+		if (it->first == CNOTT) {
+			character tmp;
+			tmp.parse_circuit(it->second);
+			out << "CNOT, T circuit: " << tmp.n << " " << tmp.m << "\n";
+			tmp.output(out);
+		}
+    else out << "Other: " << it->second.n << " " << it->second.m << "\n";
+		it->second.output(out);
+		out << "\n";
+	}
 }
 
-void dotqc::remove_ids() {
-  list<pair<string, list<string> > >::iterator it, ti;
-  bool mod = true, flg = true;
-  int i;
-  map<string, string> ids;
+dotqc metacircuit::to_dotqc() {
+	dotqc ret;
+	list<pair<circuit_type, dotqc> >::iterator it;
+	gatelist::iterator ti;
+	ret.n = n;
+	ret.m = m;
+	ret.names = names;
+	ret.zero = zero;
 
-  ids["tof"] = "tof";
-  ids["Z"] = "Z";
-  ids["H"] = "H";
-  ids["P"] = "P*";
-  ids["P*"] = "P";
-  ids["T"] = "T*";
-  ids["T*"] = "T";
+	for (it = circuit_list.begin(); it != circuit_list.end(); it++) {
+		for (ti = it->second.circ.begin(); ti != it->second.circ.end(); ti++) {
+			ret.circ.push_back(*ti);
+		}
+	}
 
-  while (mod) {
-    mod = false;
-    for (it = circ.begin(); it != circ.end(); it++) {
-      flg = false;
-      ti = it;
-      ti++;
-      for (; ti != circ.end() && !flg; ti++) {
-        i = list_compare(it->second, ti->second);
- //       cout << i << "\n";
-        switch (i) {
-          case 3:
-//            cout << it->first << " " << ti->first << "\n";
-            if (ids[it->first] == ti->first) {
-              ti = circ.erase(ti);
-              it = circ.erase(it);
-              mod = true;
-            }
-            flg = true;
-            break;
-          case 2:
-            flg = true;
-            break;
-          default:
-            break;
-        }
-      }
-    }
-  }
+	return ret;
+}
+
+void metacircuit::optimize() {
+	list<pair<circuit_type, dotqc> >::iterator it;
+	for (it =circuit_list.begin(); it != circuit_list.end(); it++) {
+		if (it->first == CNOTT) {
+			character tmp;
+			tmp.parse_circuit(it->second);
+			it->second = tmp.synthesize();
+		}
+	}
 }

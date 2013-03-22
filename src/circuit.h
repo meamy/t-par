@@ -3,16 +3,32 @@
 #include <iostream>
 #include <set>
 #include <map>
-#include <boost/dynamic_bitset.hpp>
 #include "matroid.h"
+#include "util.h"
 
 using namespace std;
 
-// Recognized gates are T, T*, P, P*, Z, Z*, and tof a b
+// Recognized gates are T, T*, P, P*, Z, Z*, Z a b c, tof a b, tof a, X, H
 
-typedef boost::dynamic_bitset<>              xor_func;
-typedef pair<char, xor_func > exponent;
+// Internal representation of a .qc circuit circuit
+struct dotqc {
+	int n;                   // number of unknown inputs
+	int m;                   // number of known inputs (initialized to |0>)
+	list<string> names;      // names of qubits
+	map<string, bool> zero;  // mapping from qubits to 0 (non-zero) or 1 (zero)
+	gatelist circ;           // Circuit
 
+	void input(istream& in);
+	void output(ostream& out);
+	void print() {output(cout);}
+	void clear() {n = 0; m = 0; names.clear(); zero.clear(); circ.clear();}
+  void append(pair<string, list<string> > gate);
+  void remove_swaps();
+  void print_stats();
+  void remove_ids();
+};
+
+// ------------------------- Hadamard version
 struct Hadamard {
   int qubit;        // Which qubit this hadamard is applied to
   int prep;         // Which "value" this hadamard prepares
@@ -21,23 +37,7 @@ struct Hadamard {
   xor_func * wires; // state of the wires when this hadamard is applied
 };
 
-// Internal representation of a .qc circuit and a {CNOT, T} circuit
-struct dotqc {
-	int n;                        // number of unknown inputs
-	int m;                        // number of known inputs (initialized to |0>)
-	list<string> names;           // names of qubits
-	map<string, bool> zero;       // mapping from qubits to 0 (non-zero) or 1 (zero)
-	list<pair<string, list<string> > > circ; // Circuit
-
-	void input(istream& in);
-	void output(ostream& out);
-	void print() {output(cout);}
-	void clear() {n = 0; m = 0; names.clear(); zero.clear(); circ.clear();}
-  void remove_swaps();
-  void print_stats();
-  void remove_ids();
-};
-
+// Characteristic of a circuit
 struct character {
 	int n;                        // number of unknown inputs
 	int m;                        // number of zero-initialized ancilla qubits
@@ -56,3 +56,20 @@ struct character {
 	dotqc synthesize();
 };
 
+// ------------------------- {CNOT, T} version
+
+enum circuit_type { CNOTT, OTHER, UNKNOWN };
+
+struct metacircuit {
+	int n;                        // number of unknown inputs
+	int m;                        // number of known inputs (initialized to |0>)
+	list<string> names;           // names of qubits
+	map<string, bool> zero;       // mapping from qubits to 0 (non-zero) or 1 (zero)
+	list<pair<circuit_type, dotqc> > circuit_list;     // A list of subcircuits
+
+	void partition_dotqc(dotqc & input);
+	void output(ostream& out);
+	void print() {output(cout);}
+	void optimize();
+	dotqc to_dotqc();
+};

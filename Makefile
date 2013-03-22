@@ -1,5 +1,5 @@
 FLAGS = -lrt -std=c++0x
-OBJS = partition.o circuit.o main.o
+OBJS = partition.o util.o circuit.o main.o
 
 all: $(OBJS)
 	g++ $(FLAGS) -o tpar $(OBJS)
@@ -7,7 +7,10 @@ all: $(OBJS)
 partition.o: src/partition.cpp
 	g++ -c $(FLAGS) src/partition.cpp
 
-circuit.o: src/circuit.cpp src/topt.cpp
+util.o: src/util.cpp
+	g++ -c $(FLAGS) src/util.cpp
+
+circuit.o: src/circuit.cpp
 	g++ -c $(FLAGS) src/circuit.cpp
 
 main.o: src/main.cpp
