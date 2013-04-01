@@ -16,7 +16,7 @@ void dotqc::input(istream& in) {
 	// Inputs
 	while (buf != ".v") in >> buf;
 	ignore_white(in);
-	while(in.peek() != '\n') {
+	while(in.peek() != '\n' && in.peek() != '\r') {
 		in >> buf;
 		names.push_back(buf);
 		zero[buf] = 1;
@@ -26,7 +26,7 @@ void dotqc::input(istream& in) {
 	// Primary inputs
 	while (buf != ".i") in >> buf;
 	ignore_white(in);
-	while (in.peek() != '\n') {
+	while (in.peek() != '\n' && in.peek() != '\r') {
 		n++;
 		in >> buf;
 		zero[buf] = 0;
@@ -42,7 +42,7 @@ void dotqc::input(istream& in) {
 		namelist.clear();
 		// Build up a list of the applied qubits
 		ignore_white(in);
-		while (in.peek() != '\n') {
+		while (in.peek() != '\n' && in.peek() != '\r') {
 			in >> buf;
 			if (find(names.begin(), names.end(), buf) == names.end()) {
 				cout << "ERROR: no such qubit \"" << buf << "\"\n" << flush;
