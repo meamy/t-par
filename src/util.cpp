@@ -278,7 +278,7 @@ gatelist compute_CNOT_network(int n, int m, const vector<exponent> & expnts, str
 			if (expnts[i].first / 2 == 1) compute.push_back(make_pair("P", tmp_lst));
 			if (expnts[i].first % 2 == 1) compute.push_back(make_pair("T", tmp_lst));
 		} else {
-			if (expnts[i].first == 5 || expnts[i].first == 6) compute.push_back(make_pair("P", tmp_lst));
+			if (expnts[i].first == 5 || expnts[i].first == 6) compute.push_back(make_pair("P*", tmp_lst));
 			if (expnts[i].first % 2 == 1) compute.push_back(make_pair("T*", tmp_lst));
 		}
 	}
@@ -347,7 +347,7 @@ gatelist construct_circuit(const vector<exponent> & phase,
 			  if (phase[*ti].first / 2 == 1) ret.push_back(make_pair("P", tmp_lst));
 			  if (phase[*ti].first % 2 == 1) ret.push_back(make_pair("T", tmp_lst));
 		  } else {
-			  if (phase[*ti].first == 5 || phase[*ti].first == 6) ret.push_back(make_pair("P", tmp_lst));
+			  if (phase[*ti].first == 5 || phase[*ti].first == 6) ret.push_back(make_pair("P*", tmp_lst));
 			  if (phase[*ti].first % 2 == 1) ret.push_back(make_pair("T*", tmp_lst));
 		  }
 	  }

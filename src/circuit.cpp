@@ -349,6 +349,7 @@ void character::parse_circuit(dotqc & input) {
 	gate_lookup["P"] = 2;
 	gate_lookup["P*"] = 6;
 	gate_lookup["Z"] = 4;
+	gate_lookup["Y"] = 4;
 
   // Initialize names and wires
 	names = new string [n + m + h];
@@ -378,6 +379,9 @@ void character::parse_circuit(dotqc & input) {
 		if (it->first == "tof" && it->second.size() == 2) {
 			wires[name_map[*(++(it->second.begin()))]] ^= wires[name_map[*(it->second.begin())]];
     } else if ((it->first == "tof" || it->first == "X") && it->second.size() == 1) {
+      wires[name_map[*(it->second.begin())]].flip(n + h);
+    } else if (it->first == "Y" && it->second.size() == 1) {
+			insert_phase(gate_lookup[it->first], wires[a], phase_expts);
       wires[name_map[*(it->second.begin())]].flip(n + h);
 		} else if (it->first == "T" || it->first == "T*" || 
 				       it->first == "P" || it->first == "P*" || 
@@ -435,7 +439,7 @@ void character::parse_circuit(dotqc & input) {
       names[name_max++].append(to_string(new_h.prep));
 
 		} else {
-			cout << "ERROR: not a {H, CNOT, Z, P, T} circuit\n";
+			cout << "ERROR: not a {H, CNOT, X, Y, Z, P, T} circuit\n";
 			phase_expts.clear();
 			delete[] outputs;
 		}
@@ -564,6 +568,7 @@ void metacircuit::partition_dotqc(dotqc & input) {
 				(it->first == "P"   && it->second.size() == 1) ||
 				(it->first == "P*"  && it->second.size() == 1) ||
         (it->first == "X"   && it->second.size() == 1) ||
+        (it->first == "Y"   && it->second.size() == 1) ||
 				(it->first == "Z"   && (it->second.size() == 1 || it->second.size() == 3)) ||
 				(it->first == "tof" && (it->second.size() == 1 || it->second.size() == 2))) {
 			if (current == UNKNOWN) {
