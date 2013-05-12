@@ -98,8 +98,11 @@ void dotqc::print_stats() {
 	int tdepth = 0;
 	bool tlayer = false;
 	gatelist::iterator ti;
+  set<string> qubits;
+  list<string>::iterator it;
 
 	for (ti = circ.begin(); ti != circ.end(); ti++) {
+    for (it = ti->second.begin(); it != ti->second.end(); it++) qubits.insert(*it);
 		if (ti->first == "T" || ti->first == "T*") {
 			T++;
 			if (!tlayer) {
@@ -124,6 +127,7 @@ void dotqc::print_stats() {
 	cout << "# P: " << P << "\n";
 	cout << "# Z: " << Z << "\n";
 	cout << "# tdepth: " << tdepth << "\n";
+	cout << "# qubits used: " << qubits.size() << "\n";
 
 }
 
