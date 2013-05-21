@@ -73,6 +73,7 @@ void dotqc::input(istream& in) {
 			}
 			ignore_white(in);
 		}
+    if (tmp == "TOF") tmp = "tof";
 		circ.push_back(make_pair(tmp, namelist));
 		in >> tmp;
 	}
