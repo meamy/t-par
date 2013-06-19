@@ -25,7 +25,7 @@ Author: Matthew Amy
 //----------------------------------------- DOTQC stuff
 
 void ignore_white(istream& in) {
-	while (in.peek() == ' ') in.ignore();
+	while (in.peek() == ' ' || in.peek() == ';') in.ignore();
 }
 
 void dotqc::input(istream& in) {
@@ -63,8 +63,16 @@ void dotqc::input(istream& in) {
 		namelist.clear();
 		// Build up a list of the applied qubits
 		ignore_white(in);
-		while (in.peek() != '\n' && in.peek() != '\r') {
+		while (in.peek() != '\n' && in.peek() != '\r' && in.peek() != ';') {
 			in >> buf;
+      int pos = buf.find(';');
+      if (pos != string::npos) {
+        for (int i = buf.length() - 1; i > pos; i--) {
+          in.putback(buf[i]);
+        }
+        in.putback('\n');
+        buf.erase(pos, buf.length() - pos);
+      }
 			if (find(names.begin(), names.end(), buf) == names.end()) {
 				cout << "ERROR: no such qubit \"" << buf << "\"\n" << flush;
 				exit(1);

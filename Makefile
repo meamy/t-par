@@ -1,20 +1,21 @@
-FLAGS = -lrt -std=c++0x
+FLAGS = -O3 -lrt -std=c++0x
 OBJS = partition.o util.o circuit.o main.o
+CXX = g++
 
 all: $(OBJS)
-	g++ $(FLAGS) -o tpar $(OBJS)
+	$(CXX) $(FLAGS) -o tpar $(OBJS)
 
 partition.o: src/partition.cpp
-	g++ -c $(FLAGS) src/partition.cpp
+	$(CXX) -c $(FLAGS) src/partition.cpp
 
 util.o: src/util.cpp
-	g++ -c $(FLAGS) src/util.cpp
+	$(CXX) -c $(FLAGS) src/util.cpp
 
 circuit.o: src/circuit.cpp
-	g++ -c $(FLAGS) src/circuit.cpp
+	$(CXX) -c $(FLAGS) src/circuit.cpp
 
 main.o: src/main.cpp
-	g++ -c $(FLAGS) src/main.cpp
+	$(CXX) -c $(FLAGS) src/main.cpp
 
 clean: 
 	rm *.o
