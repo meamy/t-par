@@ -105,6 +105,12 @@ void dotqc::output(ostream& out) {
 		if (zero[*name_it] == 0) out << " " << *name_it;
 	}
 
+	// Outputs
+	out << "\n.o";
+	for (name_it = names.begin(); name_it != names.end(); name_it++) {
+		out << " " << *name_it;
+	}
+
 	// Circuit
 	out << "\n\nBEGIN\n";
 	for (it = circ.begin(); it != circ.end(); it++) {
