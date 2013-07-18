@@ -27,8 +27,10 @@ int main(int argc, char *argv[]) {
   struct timespec start, end;
 	dotqc circuit, synth;
   bool full_character = true;
+  bool post_process = true;
   // Quick and dirty solution, don't judge me
   for (int i = 0; i < argc; i++) if ((string)argv[i] == "-no-hadamard") full_character = false;
+                                 else if ((string)argv[i] == "-no-post-process") post_process = false;
 
 	circuit.input(cin);
 
@@ -50,8 +52,10 @@ int main(int argc, char *argv[]) {
   //	cout << fixed << setprecision(3);
   //	cout << "# Time: " << (end.tv_sec + (double)end.tv_nsec/1000000000) - (start.tv_sec + (double)start.tv_nsec/1000000000) << " s\n";
 
-  synth.remove_swaps();
-  synth.remove_ids();
+  if (post_process) {
+    synth.remove_swaps();
+    synth.remove_ids();
+  }
   synth.print_stats();
   synth.print();
 

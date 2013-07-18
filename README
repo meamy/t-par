@@ -34,11 +34,14 @@ A lot of extra output is supplied on standard error. There is currently no
 option to turn it off, so either stderr or stdout should be redirected as
 necessary.
 
-Currently, the only option available is 
-  -no-hadamard
-This option performs the Tpar optimization only on subcircuits between H
-gates, analogous to the original {CNOT, T} algorithm described in 
-arXiv:1303.2042.
+Currently, the only options available are
+  -no-hadamard - This option performs the Tpar optimization only on subcircuits 
+                 between H gates, analogous to the original {CNOT, T} algorithm 
+                 described in arXiv:1303.2042.
+  -no-post-process - This option turns off post processing of the circuit to 
+                     remove swap gates and trivial identities. Turning this off
+                     makes significant difference in runtime on very large 
+                     circuits.
 
 The algorithm is described in arXiv:1303.2042, but essentially it generates
 a sum over paths type description of the circuit where phases and qubit
