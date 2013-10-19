@@ -27,6 +27,10 @@ typedef boost::dynamic_bitset<>            xor_func;
 typedef pair<char, xor_func >              exponent;
 typedef list<pair<string, list<string> > > gatelist;
 
+enum synth_type { AD_HOC, GAUSS, PMH };
+
+extern synth_type synth_method;
+
 class ind_oracle {
 	private: 
 		int num;

@@ -22,6 +22,8 @@ Author: Matthew Amy
 #include "util.h"
 #include <map>
 
+synth_type synth_method = PMH;
+
 void print_wires(const xor_func * wires, int num, int dim) {
   int i, j;
   for (i = 0; i < num; i++) {
@@ -105,7 +107,7 @@ int compute_rank(int m, int n, const xor_func * bits) {
 }
 
 // Make echelon form
-gatelist to_echelon(int m, int n, xor_func * bits, const string * names) {
+gatelist to_upper_echelon(int m, int n, xor_func * bits, xor_func * mat, const string * names) {
   gatelist acc;
 	int k, i, j;
 	int rank = 0;
@@ -113,8 +115,9 @@ gatelist to_echelon(int m, int n, xor_func * bits, const string * names) {
 
   for (j = 0; j < m; j++) {
     if (bits[j].test(n)) {
-      acc.splice(acc.end(), x_com(j, names));
       bits[j].reset(n);
+      if (mat == NULL) acc.splice(acc.end(), x_com(j, names));
+      else             mat[j].set(n);
     }
   }
 
@@ -128,12 +131,14 @@ gatelist to_echelon(int m, int n, xor_func * bits, const string * names) {
 					// If it wasn't the first vector we tried, swap to the front
 					if (j != rank) {
             swap(bits[rank], bits[j]);
-            acc.splice(acc.end(), swap_com(rank, j, names));
+            if (mat == NULL) acc.splice(acc.end(), swap_com(rank, j, names));
+            else             swap(mat[rank], mat[j]);
           }
 					flg = true;
 				} else {
 					bits[j] ^= bits[rank];
-          acc.splice(acc.end(), xor_com(rank, j, names));
+          if (mat == NULL) acc.splice(acc.end(), xor_com(rank, j, names));
+          else             mat[j] ^= mat[rank];
 				}
 			}
 		}
@@ -143,22 +148,30 @@ gatelist to_echelon(int m, int n, xor_func * bits, const string * names) {
   return acc;
 }
 
+gatelist to_lower_echelon(int m, int n, xor_func * bits, xor_func * mat, const string * names) {
+  gatelist acc;
+	int i, j;
+
+	for (i = n-1; i > 0; i--) {
+		for (j = i - 1; j >= 0; j--) {
+			if (bits[j].test(i)) {
+				bits[j] ^= bits[i];
+        if (mat == NULL) acc.splice(acc.end(), xor_com(i, j, names));
+        else              mat[j] ^= mat[i];
+			}
+		}
+	}
+  return acc;
+}
 
 // Expects two matrices in echelon form, the second being a subset of the 
 //   rowspace of the first. It then morphs the second matrix into the first
-gatelist fix_basis(int m, int n, int k, const xor_func * fst, const xor_func * snd, const string * names) {
-  list<pair<string, list<string> > > acc;
+gatelist fix_basis(int m, int n, int k, const xor_func * fst, xor_func * snd, xor_func * mat, const string * names) {
+  gatelist acc;
   int j = 0;
-  bool flg;
+  bool flg = false;
   map<int, int> pivots;  // mapping from columns to rows that have that column as pivot
   for (int i = 0; i < n; i++) pivots[i] = -1;
-
-	// Make a copy of the bitset
-	xor_func * tmp = new xor_func[m];
-	for(int i = 0; i < m; i++) {
-    if (i < k) tmp[i] = snd[i];
-    else       tmp[i] = xor_func(n + 1, 0);
-	}
 
   // First pass makes sure tmp has the same pivots as fst
   for (int i = 0; i < m; i++) {
@@ -169,11 +182,12 @@ gatelist fix_basis(int m, int n, int k, const xor_func * fst, const xor_func * s
       flg = false;
       for (int h = i; !flg && h < k; h++) {
         // We found a vector with the same pivot
-        if (tmp[h].test(j)) {
+        if (snd[h].test(j)) {
           flg = true;
           if (h != i) {
-            swap(tmp[h], tmp[i]);
-            acc.splice(acc.end(), swap_com(h, i, names));
+            swap(snd[h], snd[i]);
+            if (mat == NULL) acc.splice(acc.end(), swap_com(h, i, names));
+            else             swap(mat[h], mat[i]);
           }
         }
       }
@@ -183,10 +197,11 @@ gatelist fix_basis(int m, int n, int k, const xor_func * fst, const xor_func * s
           cout << "FATAL ERROR: second space not a subspace\n" << flush;
           exit(1);
         }
-        tmp[k] = fst[i];
+        snd[k] = fst[i];
         if (k != i) {
-          swap(tmp[k], tmp[i]);
-          acc.splice(acc.end(), swap_com(k, i, names));
+          swap(snd[k], snd[i]);
+          if (mat == NULL) acc.splice(acc.end(), swap_com(k, i, names));
+          else             swap(mat[k], mat[i]);
         }
         k++;
       }
@@ -196,25 +211,38 @@ gatelist fix_basis(int m, int n, int k, const xor_func * fst, const xor_func * s
   // Second pass makes each row of tmp equal to that row of fst
   for (int i = 0; i < m; i++) {
     for (int j = i +1; j < n; j++) {
-      if (fst[i][j] != tmp[i][j]) {
+      if (fst[i][j] != snd[i][j]) {
         if (pivots[j] == -1) {
           cout << "FATAL ERROR: cannot fix basis\n" << flush;
           exit(1);
         } else {
-          tmp[i] ^= tmp[pivots[j]];
-          acc.splice(acc.end(), xor_com(pivots[j], i, names));
+          snd[i] ^= snd[pivots[j]];
+          if (mat == NULL) acc.splice(acc.end(), xor_com(pivots[j], i, names));
+          else             mat[i] ^= mat[pivots[j]];
         }
       }
     }
-    if (!(tmp[i] == fst[i])) {
+    if (!(snd[i] == fst[i])) {
       cout << "FATAL ERROR: basis differs\n" << flush;
       exit(1);
     }
   }
 
-  delete [] tmp;
   return acc;
 }
+
+// A := B^{-1} A
+void compose(int num, xor_func * A, const xor_func * B) {
+  xor_func * tmp = new xor_func[num];
+  for (int i = 0; i < num; i++) {
+    tmp[i] = B[i];
+  }
+  to_upper_echelon(num, num, tmp, A, NULL);
+  to_lower_echelon(num, num, tmp, A, NULL);
+  delete [] tmp;
+}
+
+//------------------------- CNOT synthesis methods
 
 // Gaussian elimination based CNOT synthesis
 gatelist gauss_CNOT_synth(int n, int m, xor_func * bits, const string * names) {
@@ -232,12 +260,12 @@ gatelist gauss_CNOT_synth(int n, int m, xor_func * bits, const string * names) {
 					// If it wasn't the first vector we tried, swap to the front
 					if (j != i) {
 						swap(bits[i], bits[j]);
-            lst.splice(lst.end(), swap_com(i, j, names));
+            lst.splice(lst.begin(), swap_com(i, j, names));
 					}
 					flg = true;
 				} else {
 					bits[j] ^= bits[i];
-          lst.splice(lst.end(), xor_com(i, j, names));
+          lst.splice(lst.begin(), xor_com(i, j, names));
 				}
 			}
 		}
@@ -252,7 +280,7 @@ gatelist gauss_CNOT_synth(int n, int m, xor_func * bits, const string * names) {
 		for (j = i - 1; j >= 0; j--) {
 			if (bits[j].test(i)) {
 				bits[j] ^= bits[i];
-        lst.splice(lst.end(), xor_com(i, j, names));
+        lst.splice(lst.begin(), xor_com(i, j, names));
 			}
 		}
 	}
@@ -331,6 +359,7 @@ gatelist CNOT_synth(int n, xor_func * bits, const string * names) {
  return acc; 
 }
 
+
 // Construct a circuit for a given partition
 gatelist construct_circuit(const vector<exponent> & phase, 
                            const partitioning & part, 
@@ -340,30 +369,51 @@ gatelist construct_circuit(const vector<exponent> & phase,
                            int dim,
                            const string * names) {
   gatelist ret, tmp, rev;
-  xor_func * bits;
+  xor_func * bits = new xor_func[num];
+  xor_func * pre = new xor_func[num];
+  xor_func * post = new xor_func[num];
   set<int>::iterator ti;
   int i;
   bool flg = true;
 
+
   for (i = 0; i < num; i++) flg &= (in[i] == out[i]);
+  for (i = 0; i < num; i++) {
+    flg &= (in[i] == out[i]);
+    if (synth_method != AD_HOC) {
+      pre[i] = xor_func(num + 1, 0);
+      post[i] = xor_func(num + 1, 0);
+      pre[i].set(i);
+      post[i].set(i);
+    }
+  }
   if (flg && (part.size() == 0)) return ret;
 
   // Reduce in to echelon form to decide on a basis
-  ret.splice(ret.end(), to_echelon(num, dim, in, names));
+  if (synth_method == AD_HOC) ret.splice(ret.end(), to_upper_echelon(num, dim, in, NULL, names));
+  else to_upper_echelon(num, dim, in, pre, NULL);
 
   // For each partition... Compute *it, apply T gates, uncompute
   for (partitioning::const_iterator it = part.begin(); it != part.end(); it++) {
-    bits = new xor_func[it->size()];
-    for (ti = it->begin(), i = 0; ti != it->end(); ti++, i++) {
-      bits[i] = phase[*ti].second;
+    for (ti = it->begin(), i = 0; i < num; ti++, i++) {
+      if (i < it->size()) bits[i] = phase[*ti].second;
+      else                bits[i] = xor_func(dim + 1, 0);
     }
     
     // prepare the bits
-    tmp = to_echelon(it->size(), dim, bits, names);
-    tmp.splice(tmp.end(), fix_basis(num, dim, it->size(), in, bits, names));
-    rev = tmp;
-    rev.reverse();
-    ret.splice(ret.end(), rev);
+    if (synth_method == AD_HOC) {
+      tmp = to_upper_echelon(it->size(), dim, bits, NULL, names);
+      tmp.splice(tmp.end(), fix_basis(num, dim, it->size(), in, bits, NULL, names));
+      rev = tmp;
+      rev.reverse();
+      ret.splice(ret.end(), rev);
+    } else {
+      to_upper_echelon(it->size(), dim, bits, post, NULL);
+      fix_basis(num, dim, it->size(), in, bits, post, NULL);
+      compose(num, pre, post);
+      if (synth_method == GAUSS) ret.splice(ret.end(), gauss_CNOT_synth(num, 0, pre, names));
+      else if (synth_method == PMH) ret.splice(ret.end(), CNOT_synth(num, pre, names));
+    }
 
     // apply the T gates
 	  list<string> tmp_lst;
@@ -381,58 +431,41 @@ gatelist construct_circuit(const vector<exponent> & phase,
 	  }
 
     // unprepare the bits
-    ret.splice(ret.end(), tmp);
-    delete [] bits;
+    if (synth_method == AD_HOC) ret.splice(ret.end(), tmp);
+    else {
+      delete [] pre;
+      pre = post;
+      post = new xor_func[num];
+      // re-initialize
+      for (i = 0; i < num; i++) {
+        post[i] = xor_func(num + 1, 0);
+        post[i].set(i);
+      }
+    }
   }
 
   // Reduce out to the basis of in
-  bits = new xor_func[num];
   for (i = 0; i < num; i++) {
     bits[i] = out[i];
   }
-  tmp = to_echelon(num, dim, bits, names);
-  tmp.splice(tmp.end(), fix_basis(num, dim, num, in, bits, names));
-  tmp.reverse();
-  ret.splice(ret.end(), tmp);
+  if (synth_method == AD_HOC) {
+    tmp = to_upper_echelon(num, dim, bits, NULL, names);
+    tmp.splice(tmp.end(), fix_basis(num, dim, num, in, bits, NULL, names));
+    tmp.reverse();
+    ret.splice(ret.end(), tmp);
+  } else {
+    to_upper_echelon(num, dim, bits, post, NULL);
+    fix_basis(num, dim, num, in, bits, post, NULL);
+    compose(num, pre, post);
+    if (synth_method == GAUSS) ret.splice(ret.end(), gauss_CNOT_synth(num, 0, pre, names));
+    else if (synth_method == PMH) ret.splice(ret.end(), CNOT_synth(num, pre, names));
+  }
+
   delete [] bits;
+  delete [] pre;
+  delete [] post;
 
   return ret;
-}
-
-
-void compute_function(xor_func * bits, int num, const gatelist & pre, const gatelist & post, const string * names) { 
-  int i;
-  gatelist::const_iterator it;
-  map<string, int> name_map;
-
-  // initialize the name mapping
-  for (i = 0; i < num; i++) {
-    name_map[names[i]] = i;
-  }
-
-  // initialize bits
-  for (i = 0; i < num; i++) {
-    bits[i] = xor_func(num + 1, 0);
-    bits[i].set(i);
-  }
-
-  // iterate through pre and post
-  for (it = pre.begin(); it != pre.end(); it++) {
-    assert(it->first == "tof");
-    if (it->second.size() == 1) {
-      bits[name_map[*(it->second.begin())]].flip(num);
-    } else if (it->second.size() == 2) {
-      bits[name_map[*(++(it->second.begin()))]] ^= bits[name_map[*(it->second.begin())]];
-    } else assert(false);
-  }
-  for (it = post.begin(); it != post.end(); it++) {
-    assert(it->first == "tof");
-    if (it->second.size() == 1) {
-      bits[name_map[*(it->second.begin())]].flip(num);
-    } else if (it->second.size() == 2) {
-      bits[name_map[*(++(it->second.begin()))]] ^= bits[name_map[*(it->second.begin())]];
-    } else assert(false);
-  }
 }
 
 gatelist construct_circuit_efficient(const vector<exponent> & phase, 
@@ -442,37 +475,40 @@ gatelist construct_circuit_efficient(const vector<exponent> & phase,
                                      int num,
                                      int dim,
                                      const string * names) {
-  gatelist ret, tmp, rev, pre, post;
-  xor_func * bits;
-  xor_func * bits2;
+  gatelist ret, rev;
+  xor_func * bits = new xor_func[num];
+  xor_func * pre = new xor_func[num];
+  xor_func * post = new xor_func[num];
   set<int>::iterator ti;
   int i;
   bool flg = true;
-  bits2 = new xor_func[num];
 
-  for (i = 0; i < num; i++) flg &= (in[i] == out[i]);
+  for (i = 0; i < num; i++) {
+    flg &= (in[i] == out[i]);
+    pre[i] = xor_func(num + 1, 0);
+    post[i] = xor_func(num + 1, 0);
+    pre[i].set(i);
+    post[i].set(i);
+  }
   if (flg && (part.size() == 0)) return ret;
 
   // Reduce in to echelon form to decide on a basis
-  pre = to_echelon(num, dim, in, names);
+  to_upper_echelon(num, dim, in, pre, NULL);
 
   // For each partition... Compute *it, apply T gates, uncompute
   for (partitioning::const_iterator it = part.begin(); it != part.end(); it++) {
 
-    bits = new xor_func[it->size()];
-    for (ti = it->begin(), i = 0; ti != it->end(); ti++, i++) {
-      bits[i] = phase[*ti].second;
+    for (ti = it->begin(), i = 0; i < num; ti++, i++) {
+      if (i < it->size()) bits[i] = phase[*ti].second;
+      else                bits[i] = xor_func(dim + 1, 0);
     }
     
     // prepare the bits
-    tmp = to_echelon(it->size(), dim, bits, names);
-    tmp.splice(tmp.end(), fix_basis(num, dim, it->size(), in, bits, names));
-    post = tmp;
-    post.reverse();
-
-    compute_function(bits2, num, pre, post, names);
-    //ret.splice(ret.end(), gauss_CNOT_synth(num, 0, bits2, names));
-    ret.splice(ret.end(), CNOT_synth(num, bits2, names));
+    to_upper_echelon(it->size(), dim, bits, post, NULL);
+    fix_basis(num, dim, it->size(), in, bits, post, NULL);
+    compose(num, pre, post);
+    //ret.splice(ret.end(), gauss_CNOT_synth(num, 0, pre, names));
+    ret.splice(ret.end(), CNOT_synth(num, pre, names));
 
     // apply the T gates
 	  list<string> tmp_lst;
@@ -489,25 +525,30 @@ gatelist construct_circuit_efficient(const vector<exponent> & phase,
 		  }
 	  }
 
-    // unprepare the bits
-    pre = tmp;
-
-    delete [] bits;
+    delete [] pre;
+    pre = post;
+    post = new xor_func[num];
+    // re-initialize post
+    for (i = 0; i < num; i++) {
+      post[i] = xor_func(num + 1, 0);
+      post[i].set(i);
+    }
   }
 
   // Reduce out to the basis of in
-  bits = new xor_func[num];
   for (i = 0; i < num; i++) {
     bits[i] = out[i];
   }
-  post = to_echelon(num, dim, bits, names);
-  post.splice(tmp.end(), fix_basis(num, dim, num, in, bits, names));
-  post.reverse();
-  compute_function(bits2, num, pre, post, names);
-  //ret.splice(ret.end(), gauss_CNOT_synth(num, 0, bits2, names));
-  ret.splice(ret.end(), CNOT_synth(num, bits2, names));
+  to_upper_echelon(num, dim, bits, post, NULL);
+  fix_basis(num, dim, num, in, bits, post, NULL);
+
+  // multiply pre := post^{-1} * pre
+  compose(num, pre, post);
+  //ret.splice(ret.end(), gauss_CNOT_synth(num, 0, pre, names));
+  ret.splice(ret.end(), CNOT_synth(num, pre, names));
   delete [] bits;
-  delete [] bits2;
+  delete [] pre;
+  delete [] post;
 
   return ret;
 }

@@ -71,7 +71,7 @@ void add_to_partition(partitioning & ret, int i, const vector<T> & elts, const o
 
   // Reset everything
   node_q.clear();
-  for (int j = 0; j <= i; j++) {
+  for (int j = 0; j <= elts.size(); j++) {
     marked[j] = false;
   }
   flag = false;

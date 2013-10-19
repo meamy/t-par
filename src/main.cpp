@@ -31,6 +31,9 @@ int main(int argc, char *argv[]) {
   // Quick and dirty solution, don't judge me
   for (int i = 0; i < argc; i++) if ((string)argv[i] == "-no-hadamard") full_character = false;
                                  else if ((string)argv[i] == "-no-post-process") post_process = false;
+                                 else if ((string)argv[i] == "-synth=ADHOC") synth_method = AD_HOC;
+                                 else if ((string)argv[i] == "-synth=GAUSS") synth_method = GAUSS;
+                                 else if ((string)argv[i] == "-synth=PMH") synth_method = PMH;
 
 	circuit.input(cin);
 

@@ -541,7 +541,8 @@ dotqc character::synthesize() {
 
     cerr << "Constructing {CNOT, T} subcircuit... " << flush;
     ret.circ.splice(ret.circ.end(), 
-                    construct_circuit_efficient(phase_expts, frozen, wires, it->wires, n + m, n + h, names));
+                    construct_circuit(phase_expts, frozen, wires, it->wires, n + m, n + h, names));
+                    //construct_circuit_efficient(phase_expts, frozen, wires, it->wires, n + m, n + h, names));
 	  for (int i = 0; i < n + m; i++) {
       wires[i] = it->wires[i];
     }
@@ -578,13 +579,14 @@ dotqc character::synthesize() {
 
   cerr << "Constructing final {CNOT, T} subcircuit... " << floats << flush;
   ret.circ.splice(ret.circ.end(), 
-                  construct_circuit_efficient(phase_expts, floats, wires, outputs, n + m, n + h, names));
+                  construct_circuit(phase_expts, floats, wires, outputs, n + m, n + h, names));
+                  //construct_circuit_efficient(phase_expts, floats, wires, outputs, n + m, n + h, names));
   cerr << "\n" << flush;
 
   return ret;
 }
 
-//-------------------------------- {CNOT, T} version code
+//-------------------------------- old {CNOT, T} version code. Still used for the "no hadamards" option
 
 void metacircuit::partition_dotqc(dotqc & input) {
 	list<pair<string, list<string> > >::iterator it;
