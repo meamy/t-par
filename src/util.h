@@ -50,3 +50,11 @@ gatelist construct_circuit(const vector<exponent> & phase,
                            int num,
                            int dim,
                            const string * names);
+
+gatelist construct_circuit_efficient(const vector<exponent> & phase, 
+                           const partitioning & part, 
+                           xor_func * in, 
+                           const xor_func * out,
+                           int num,
+                           int dim,
+                           const string * names);
