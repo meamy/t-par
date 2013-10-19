@@ -359,7 +359,6 @@ gatelist CNOT_synth(int n, xor_func * bits, const string * names) {
  return acc; 
 }
 
-
 // Construct a circuit for a given partition
 gatelist construct_circuit(const vector<exponent> & phase, 
                            const partitioning & part, 
@@ -461,91 +460,6 @@ gatelist construct_circuit(const vector<exponent> & phase,
     else if (synth_method == PMH) ret.splice(ret.end(), CNOT_synth(num, pre, names));
   }
 
-  delete [] bits;
-  delete [] pre;
-  delete [] post;
-
-  return ret;
-}
-
-gatelist construct_circuit_efficient(const vector<exponent> & phase, 
-                                     const partitioning & part, 
-                                     xor_func * in, 
-                                     const xor_func * out,
-                                     int num,
-                                     int dim,
-                                     const string * names) {
-  gatelist ret, rev;
-  xor_func * bits = new xor_func[num];
-  xor_func * pre = new xor_func[num];
-  xor_func * post = new xor_func[num];
-  set<int>::iterator ti;
-  int i;
-  bool flg = true;
-
-  for (i = 0; i < num; i++) {
-    flg &= (in[i] == out[i]);
-    pre[i] = xor_func(num + 1, 0);
-    post[i] = xor_func(num + 1, 0);
-    pre[i].set(i);
-    post[i].set(i);
-  }
-  if (flg && (part.size() == 0)) return ret;
-
-  // Reduce in to echelon form to decide on a basis
-  to_upper_echelon(num, dim, in, pre, NULL);
-
-  // For each partition... Compute *it, apply T gates, uncompute
-  for (partitioning::const_iterator it = part.begin(); it != part.end(); it++) {
-
-    for (ti = it->begin(), i = 0; i < num; ti++, i++) {
-      if (i < it->size()) bits[i] = phase[*ti].second;
-      else                bits[i] = xor_func(dim + 1, 0);
-    }
-    
-    // prepare the bits
-    to_upper_echelon(it->size(), dim, bits, post, NULL);
-    fix_basis(num, dim, it->size(), in, bits, post, NULL);
-    compose(num, pre, post);
-    //ret.splice(ret.end(), gauss_CNOT_synth(num, 0, pre, names));
-    ret.splice(ret.end(), CNOT_synth(num, pre, names));
-
-    // apply the T gates
-	  list<string> tmp_lst;
-    for (ti = it->begin(), i = 0; ti != it->end(); ti++, i++) {
-		  tmp_lst.clear();
-		  tmp_lst.push_back(names[i]);
-		  if (phase[*ti].first <= 4) {
-			  if (phase[*ti].first / 4 == 1) ret.push_back(make_pair("Z", tmp_lst));
-			  if (phase[*ti].first / 2 == 1) ret.push_back(make_pair("P", tmp_lst));
-			  if (phase[*ti].first % 2 == 1) ret.push_back(make_pair("T", tmp_lst));
-		  } else {
-			  if (phase[*ti].first == 5 || phase[*ti].first == 6) ret.push_back(make_pair("P*", tmp_lst));
-			  if (phase[*ti].first % 2 == 1) ret.push_back(make_pair("T*", tmp_lst));
-		  }
-	  }
-
-    delete [] pre;
-    pre = post;
-    post = new xor_func[num];
-    // re-initialize post
-    for (i = 0; i < num; i++) {
-      post[i] = xor_func(num + 1, 0);
-      post[i].set(i);
-    }
-  }
-
-  // Reduce out to the basis of in
-  for (i = 0; i < num; i++) {
-    bits[i] = out[i];
-  }
-  to_upper_echelon(num, dim, bits, post, NULL);
-  fix_basis(num, dim, num, in, bits, post, NULL);
-
-  // multiply pre := post^{-1} * pre
-  compose(num, pre, post);
-  //ret.splice(ret.end(), gauss_CNOT_synth(num, 0, pre, names));
-  ret.splice(ret.end(), CNOT_synth(num, pre, names));
   delete [] bits;
   delete [] pre;
   delete [] post;
