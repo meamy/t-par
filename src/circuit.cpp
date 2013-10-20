@@ -199,9 +199,11 @@ void dotqc::append(pair<string, list<string> > gate) {
 void dotqc::remove_swaps() {
   gatelist::iterator it, tt, ttt;
   list<string>::iterator iti;
-  string q1, q2;
-  bool flg;
+  map<string, string>::iterator pit;
+  string q1, q2, q1_map, q2_map, tmp;
+  bool flg, found_q1, found_q2;
   int i;
+  map<string, string> perm;
 
   for (it = circ.begin(), i = 0; i < (circ.size() - 3);) {
     flg = false;
@@ -226,20 +228,49 @@ void dotqc::remove_swaps() {
         if (flg) {
           circ.erase(it);
           circ.erase(tt);
-          it = ttt = circ.erase(ttt);
-          while (ttt != circ.end()) {
-            for (iti = ttt->second.begin(); iti != ttt->second.end(); iti++) {
-              if (*iti == q1) *iti = q2;
-              else if (*iti == q2) *iti = q1;
-            }
-            ttt++;
-          }
+          it = circ.erase(ttt);
+          found_q1 = found_q2 = false;
+          q1_map = (perm.find(q2) != perm.end()) ? perm[q2] : q2;
+          q2_map = (perm.find(q1) != perm.end()) ? perm[q1] : q1;
+          perm[q1] = q1_map;
+          perm[q2] = q2_map;
         }
       }
     }
     if (!flg) {
+      // Apply permutation
+      for (iti = it->second.begin(); iti != it->second.end(); iti++) {
+        if (perm.find(*iti) != perm.end()) *iti = perm[*iti];
+      }
       i++;
       it++;
+    }
+  }
+  for (; i < circ.size(); i++) {
+    for (iti = it->second.begin(); iti != it->second.end(); iti++) {
+      if (perm.find(*iti) != perm.end()) *iti = perm[*iti];
+    }
+    it++;
+  }
+
+  // fix outputs
+  while(!perm.empty()) {
+    pit = perm.begin();
+    if (pit->first == pit->second) perm.erase(pit);
+    else {
+      list<string> tmp_list1, tmp_list2;
+      q1 = pit->second;
+      q2 = perm[pit->second];
+      tmp_list1.push_back(q1);
+      tmp_list1.push_back(q2);
+      tmp_list2.push_back(q2);
+      tmp_list2.push_back(q1);
+      circ.push_back(make_pair("tof", tmp_list1));
+      circ.push_back(make_pair("tof", tmp_list2));
+      circ.push_back(make_pair("tof", tmp_list1));
+
+      pit->second = q2;
+      perm[q1] = q1;
     }
   }
 }
