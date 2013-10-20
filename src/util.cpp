@@ -117,7 +117,7 @@ gatelist to_upper_echelon(int m, int n, xor_func * bits, xor_func * mat, const s
     if (bits[j].test(n)) {
       bits[j].reset(n);
       if (mat == NULL) acc.splice(acc.end(), x_com(j, names));
-      else             mat[j].set(n);
+      else             mat[j].set(m);
     }
   }
 
@@ -249,6 +249,13 @@ gatelist gauss_CNOT_synth(int n, int m, xor_func * bits, const string * names) {
 	int i, j, k;
 	gatelist lst;
 	list<string> tmp_list1, tmp_list2;
+
+  for (j = 0; j < n; j++) {
+    if (bits[j].test(n)) {
+      bits[j].reset(n);
+      lst.splice(lst.begin(), x_com(j, names));
+    }
+  }
 
 	// Make triangular
 	for (i = 0; i < n; i++) {
