@@ -521,21 +521,21 @@ void character::parse_circuit(dotqc & input) {
 
 dotqc character::synthesize() {
   partitioning floats, frozen; 
-	dotqc ret;
+  dotqc ret;
   xor_func mask(n + h + 1, 0);      // Tells us what values we have prepared
   xor_func wires[n + m];        // Current state of the wires
   list<int> remaining;          // Which terms we still have to partition
-  int dim = n, tmp, tdepth = 0;
+  int dim = n, tmp, tdepth = 0, h_count = 1, applied = 0;
   ind_oracle oracle(n + m, dim, n + h);
   list<pair<string, list<string> > > circ;
   list<Hadamard>::iterator it;
 
   // initialize some stuff
-	ret.n = n;
-	ret.m = m;
+  ret.n = n;
+  ret.m = m;
   mask.set(n + h);
-	for (int i = 0, j = 0; i < n + m; i++) {
-		ret.names.push_back(names[i]);
+  for (int i = 0, j = 0; i < n + m; i++) {
+    ret.names.push_back(names[i]);
     ret.zero[names[i]] = zero[i];
     wires[i] = xor_func(n + h + 1, 0);
     if (!zero[i]) {
@@ -550,7 +550,7 @@ dotqc character::synthesize() {
   }
 
   // create an initial partition
-  cerr << "Adding new functions to the partition... " << flush;
+ // cerr << "Adding new functions to the partition... " << flush;
   for (list<int>::iterator it = remaining.begin(); it != remaining.end();) {
     xor_func tmp = (~mask) & (phase_expts[*it].second);
     if (tmp.none()) {
@@ -558,45 +558,43 @@ dotqc character::synthesize() {
       it = remaining.erase(it);
     } else it++;
   }
-  cerr << floats << "\n" << flush;
+  if (disp_log) cerr << "  " << phase_expts.size() - remaining.size() << "/" << phase_expts.size() << " phase rotations partitioned\n" << flush;
 
-  for (it = hadamards.begin(); it != hadamards.end(); it++) {
+  for (it = hadamards.begin(); it != hadamards.end(); it++, h_count++) {
     // 1. freeze partitions that are not disjoint from the hadamard input
     // 2. construct CNOT+T circuit
     // 3. apply the hadamard gate
     // 4. add new functions to the partition
+    if (disp_log) cerr << "  Hadamard " << h_count << "/" << hadamards.size() << "\n" << flush;
 
-    cerr << "Freezing partitions... " << flush;
+    // determine frozen partitions
     frozen = freeze_partitions(floats, it->in);
-    cerr << frozen << "\n" << flush;
+    applied += num_elts(frozen);
 
-    cerr << "Constructing {CNOT, T} subcircuit... " << flush;
+    // Construct {CNOT, T} subcircuit for the frozen partitions
     ret.circ.splice(ret.circ.end(), 
                     construct_circuit(phase_expts, frozen, wires, it->wires, n + m, n + h, names));
-	  for (int i = 0; i < n + m; i++) {
+    for (int i = 0; i < n + m; i++) {
       wires[i] = it->wires[i];
     }
-    cerr << "\n" << flush;
+    if (disp_log) cerr << "    " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
 
-    cerr << "Applying Hadamard gate... " << flush;
+    // Apply Hadamard gate
     ret.circ.push_back(make_pair("H", list<string>(1, names[it->qubit])));
     wires[it->qubit].reset();
     wires[it->qubit].set(it->prep);
     mask.set(it->prep);
-    cerr << "\n" << flush;
 
-    cerr << "Checking for increase in dimension... " << flush;
+    // Check for increases in dimension
     tmp = compute_rank(n + m, n + h, wires);
     if (tmp > dim) {
-      cerr << "Increased to " << tmp << "\n" << "Repartitioning... " << flush;
+      if (disp_log) cerr << "    Dimension increased to " << tmp << ", fixing partitions...\n" << flush;
       dim = tmp;
       oracle.set_dim(dim);
       repartition(floats, phase_expts, oracle);
-      cerr << floats << flush;
     }
-    cerr << "\n" << flush;
 
-    cerr << "Adding new functions to the partition... " << flush;
+    // Add new functions to the partition
     for (list<int>::iterator it = remaining.begin(); it != remaining.end();) {
       xor_func tmp = (~mask) & (phase_expts[*it].second);
       if (tmp.none()) {
@@ -604,13 +602,14 @@ dotqc character::synthesize() {
         it = remaining.erase(it);
       } else it++;
     }
-    cerr << floats << "\n" << flush;
+    if (disp_log) cerr << "    " << phase_expts.size() - remaining.size() << "/" << phase_expts.size() << " phase rotations partitioned\n" << flush;
   }
 
-  cerr << "Constructing final {CNOT, T} subcircuit... " << floats << flush;
+  applied += num_elts(floats);
+  // Construct the final {CNOT, T} subcircuit
   ret.circ.splice(ret.circ.end(), 
                   construct_circuit(phase_expts, floats, wires, outputs, n + m, n + h, names));
-  cerr << "\n" << flush;
+  if (disp_log) cerr << "  " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
 
   return ret;
 }
@@ -618,123 +617,123 @@ dotqc character::synthesize() {
 //-------------------------------- old {CNOT, T} version code. Still used for the "no hadamards" option
 
 void metacircuit::partition_dotqc(dotqc & input) {
-	list<pair<string, list<string> > >::iterator it;
-	list<string>::iterator iti;
-	map<string, bool>::iterator ti;
-	circuit_type current = UNKNOWN;
+  list<pair<string, list<string> > >::iterator it;
+  list<string>::iterator iti;
+  map<string, bool>::iterator ti;
+  circuit_type current = UNKNOWN;
 
-	n = input.n;
-	m = input.m;
-	circuit_list.clear();
-	names = input.names;
-	zero  = input.zero;
+  n = input.n;
+  m = input.m;
+  circuit_list.clear();
+  names = input.names;
+  zero  = input.zero;
 
-	dotqc acc;
-	map<string, bool> zero_acc = input.zero;
+  dotqc acc;
+  map<string, bool> zero_acc = input.zero;
 
-	acc.zero = zero_acc;
-	for (it = input.circ.begin(); it != input.circ.end(); it++) {
-		if ((it->first == "T"   && it->second.size() == 1) ||
-				(it->first == "T*"  && it->second.size() == 1) ||
-				(it->first == "P"   && it->second.size() == 1) ||
-				(it->first == "P*"  && it->second.size() == 1) ||
+  acc.zero = zero_acc;
+  for (it = input.circ.begin(); it != input.circ.end(); it++) {
+    if ((it->first == "T"   && it->second.size() == 1) ||
+        (it->first == "T*"  && it->second.size() == 1) ||
+        (it->first == "P"   && it->second.size() == 1) ||
+        (it->first == "P*"  && it->second.size() == 1) ||
         (it->first == "X"   && it->second.size() == 1) ||
         (it->first == "Y"   && it->second.size() == 1) ||
-				(it->first == "Z"   && (it->second.size() == 1 || it->second.size() == 3)) ||
-				(it->first == "tof" && (it->second.size() == 1 || it->second.size() == 2))) {
-			if (current == UNKNOWN) {
-				current = CNOTT;
-			} else if (current != CNOTT) {
-				acc.n = acc.m = 0;
-				for (ti = acc.zero.begin(); ti != acc.zero.end(); ti++) {
-					if (ti->second) {
-						acc.m += 1;
-						if (!find_name(acc.names, ti->first)) acc.names.push_back(ti->first);
-					}
-				}
-				acc.n = acc.names.size() - acc.m;
-				circuit_list.push_back(make_pair(current, acc));
+        (it->first == "Z"   && (it->second.size() == 1 || it->second.size() == 3)) ||
+        (it->first == "tof" && (it->second.size() == 1 || it->second.size() == 2))) {
+      if (current == UNKNOWN) {
+        current = CNOTT;
+      } else if (current != CNOTT) {
+        acc.n = acc.m = 0;
+        for (ti = acc.zero.begin(); ti != acc.zero.end(); ti++) {
+          if (ti->second) {
+            acc.m += 1;
+            if (!find_name(acc.names, ti->first)) acc.names.push_back(ti->first);
+          }
+        }
+        acc.n = acc.names.size() - acc.m;
+        circuit_list.push_back(make_pair(current, acc));
 
-				acc.clear();
-				acc.zero = zero_acc;
-				current = CNOTT;
-			}
-		} else {
-			if (current == UNKNOWN) {
-				current = OTHER;
-			} else if (current != OTHER) {
-				acc.n = acc.m = 0;
-				for (ti = acc.zero.begin(); ti != acc.zero.end(); ti++) {
-					if (ti->second) {
-						acc.m += 1;
-						if (!find_name(acc.names, ti->first)) acc.names.push_back(ti->first);
-					}
-				}
-				acc.n = acc.names.size() - acc.m;
-				circuit_list.push_back(make_pair(current, acc));
+        acc.clear();
+        acc.zero = zero_acc;
+        current = CNOTT;
+      }
+    } else {
+      if (current == UNKNOWN) {
+        current = OTHER;
+      } else if (current != OTHER) {
+        acc.n = acc.m = 0;
+        for (ti = acc.zero.begin(); ti != acc.zero.end(); ti++) {
+          if (ti->second) {
+            acc.m += 1;
+            if (!find_name(acc.names, ti->first)) acc.names.push_back(ti->first);
+          }
+        }
+        acc.n = acc.names.size() - acc.m;
+        circuit_list.push_back(make_pair(current, acc));
 
-				acc.clear();
-				acc.zero = zero_acc;
-				current = OTHER;
-			}
-		}
-		for (iti = it->second.begin(); iti != it->second.end(); iti++) {
-			zero_acc[*iti] = false;
-		}
-		acc.append(*it);
-	}
+        acc.clear();
+        acc.zero = zero_acc;
+        current = OTHER;
+      }
+    }
+    for (iti = it->second.begin(); iti != it->second.end(); iti++) {
+      zero_acc[*iti] = false;
+    }
+    acc.append(*it);
+  }
 
-	acc.n = acc.m = 0;
-	for (ti = acc.zero.begin(); ti != acc.zero.end(); ti++) {
-		if (ti->second) {
-			acc.m += 1;
-			if (!find_name(acc.names, ti->first)) acc.names.push_back(ti->first);
-		}
-	}
-	acc.n = acc.names.size() - acc.m;
-	circuit_list.push_back(make_pair(current, acc));
+  acc.n = acc.m = 0;
+  for (ti = acc.zero.begin(); ti != acc.zero.end(); ti++) {
+    if (ti->second) {
+      acc.m += 1;
+      if (!find_name(acc.names, ti->first)) acc.names.push_back(ti->first);
+    }
+  }
+  acc.n = acc.names.size() - acc.m;
+  circuit_list.push_back(make_pair(current, acc));
 }
 
 void metacircuit::output(ostream& out) {
-	list<pair<circuit_type, dotqc> >::iterator it;
-	for (it = circuit_list.begin(); it != circuit_list.end(); it++) {
-		if (it->first == CNOTT) {
-			character tmp;
-			tmp.parse_circuit(it->second);
-			out << "CNOT, T circuit: " << tmp.n << " " << tmp.m << "\n";
-			tmp.output(out);
-		}
+  list<pair<circuit_type, dotqc> >::iterator it;
+  for (it = circuit_list.begin(); it != circuit_list.end(); it++) {
+    if (it->first == CNOTT) {
+      character tmp;
+      tmp.parse_circuit(it->second);
+      out << "CNOT, T circuit: " << tmp.n << " " << tmp.m << "\n";
+      tmp.output(out);
+    }
     else out << "Other: " << it->second.n << " " << it->second.m << "\n";
-		it->second.output(out);
-		out << "\n";
-	}
+    it->second.output(out);
+    out << "\n";
+  }
 }
 
 dotqc metacircuit::to_dotqc() {
-	dotqc ret;
-	list<pair<circuit_type, dotqc> >::iterator it;
-	gatelist::iterator ti;
-	ret.n = n;
-	ret.m = m;
-	ret.names = names;
-	ret.zero = zero;
+  dotqc ret;
+  list<pair<circuit_type, dotqc> >::iterator it;
+  gatelist::iterator ti;
+  ret.n = n;
+  ret.m = m;
+  ret.names = names;
+  ret.zero = zero;
 
-	for (it = circuit_list.begin(); it != circuit_list.end(); it++) {
-		for (ti = it->second.circ.begin(); ti != it->second.circ.end(); ti++) {
-			ret.circ.push_back(*ti);
-		}
-	}
+  for (it = circuit_list.begin(); it != circuit_list.end(); it++) {
+    for (ti = it->second.circ.begin(); ti != it->second.circ.end(); ti++) {
+      ret.circ.push_back(*ti);
+    }
+  }
 
-	return ret;
+  return ret;
 }
 
 void metacircuit::optimize() {
-	list<pair<circuit_type, dotqc> >::iterator it;
-	for (it =circuit_list.begin(); it != circuit_list.end(); it++) {
-		if (it->first == CNOTT) {
-			character tmp;
-			tmp.parse_circuit(it->second);
-			it->second = tmp.synthesize();
-		}
-	}
+  list<pair<circuit_type, dotqc> >::iterator it;
+  for (it =circuit_list.begin(); it != circuit_list.end(); it++) {
+    if (it->first == CNOTT) {
+      character tmp;
+      tmp.parse_circuit(it->second);
+      it->second = tmp.synthesize();
+    }
+  }
 }

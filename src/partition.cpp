@@ -68,3 +68,12 @@ partitioning freeze_partitions(partitioning & part, set<int> & st) {
   }
   return ret;
 }
+
+int num_elts(partitioning & part) {
+  int tot = 0;
+  partitioning::iterator it;
+  for (it = part.begin(); it != part.end(); it++) {
+    tot += it->size();
+  }
+  return tot;
+}

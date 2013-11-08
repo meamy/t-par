@@ -39,28 +39,33 @@ int main(int argc, char *argv[]) {
 
   if (full_character) {
     character c;
+    if (disp_log) cerr << "Parsing circuit...\n" << flush;
     c.parse_circuit(circuit);
-    c.output(cerr);
-    //	clock_gettime(CLOCK_MONOTONIC, &start);
+    if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
+    clock_gettime(CLOCK_MONOTONIC, &start);
     synth = c.synthesize();
-    //	clock_gettime(CLOCK_MONOTONIC, &end);
+    clock_gettime(CLOCK_MONOTONIC, &end);
   } else {
     metacircuit meta;
+    if (disp_log) cerr << "Parsing circuit...\n" << flush;
     meta.partition_dotqc(circuit);
-    //	clock_gettime(CLOCK_MONOTONIC, &start);
+    if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
+    clock_gettime(CLOCK_MONOTONIC, &start);
     meta.optimize();
-    //	clock_gettime(CLOCK_MONOTONIC, &end);
+    clock_gettime(CLOCK_MONOTONIC, &end);
     synth = meta.to_dotqc();
   }
-  //	cout << fixed << setprecision(3);
-  //	cout << "# Time: " << (end.tv_sec + (double)end.tv_nsec/1000000000) - (start.tv_sec + (double)start.tv_nsec/1000000000) << " s\n";
+  cout << fixed << setprecision(3);
+  cout << "# Time: " << (end.tv_sec + (double)end.tv_nsec/1000000000) 
+                      - (start.tv_sec + (double)start.tv_nsec/1000000000) << " s\n";
 
   if (post_process) {
+    if (disp_log) cerr << "Applying post-processing...\n" << flush;
     synth.remove_swaps();
     synth.remove_ids();
   }
   synth.print_stats();
   synth.print();
 
-	return 0;
+  return 0;
 }

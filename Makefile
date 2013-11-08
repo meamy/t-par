@@ -1,9 +1,9 @@
-FLAGS = -O3 -lrt -std=c++0x
+FLAGS = -O3 -std=c++0x
 OBJS = partition.o util.o circuit.o main.o
 CXX = g++
 
 all: $(OBJS)
-	$(CXX) $(FLAGS) -o tpar $(OBJS)
+	$(CXX) $(FLAGS) -o tpar $(OBJS) -lrt
 
 partition.o: src/partition.cpp
 	$(CXX) -c $(FLAGS) src/partition.cpp

@@ -22,6 +22,7 @@ Author: Matthew Amy
 #include "util.h"
 #include <map>
 
+bool disp_log = false;
 synth_type synth_method = PMH;
 
 void print_wires(const xor_func * wires, int num, int dim) {
@@ -37,24 +38,24 @@ void print_wires(const xor_func * wires, int num, int dim) {
 
 // Commands for making certain circuits
 gatelist xor_com(int a, int b, const string * names) {
-	list<string> tmp_list;
+  list<string> tmp_list;
   gatelist ret;
 
-	tmp_list.push_back(names[a]);
-	tmp_list.push_back(names[b]);
-	ret.push_back(make_pair("tof", tmp_list));
+  tmp_list.push_back(names[a]);
+  tmp_list.push_back(names[b]);
+  ret.push_back(make_pair("tof", tmp_list));
 
   return ret;
 }
 
 gatelist swap_com(int a, int b, const string * names) {
-	list<string> tmp_list1, tmp_list2;
+  list<string> tmp_list1, tmp_list2;
   gatelist ret;
 
-	tmp_list1.push_back(names[a]);
-	tmp_list1.push_back(names[b]);
-	tmp_list2.push_back(names[b]);
-	tmp_list2.push_back(names[a]);
+  tmp_list1.push_back(names[a]);
+  tmp_list1.push_back(names[b]);
+  tmp_list2.push_back(names[b]);
+  tmp_list2.push_back(names[a]);
   ret.push_back(make_pair("tof", tmp_list1));
   ret.push_back(make_pair("tof", tmp_list2));
   ret.push_back(make_pair("tof", tmp_list1));
@@ -474,6 +475,7 @@ gatelist construct_circuit(const vector<exponent> & phase,
   return ret;
 }
 
+// Matroid oracle
 bool ind_oracle::operator()(const vector<exponent> & expnts, const set<int> & lst) const {
   if (lst.size() > num) return false;
   if (lst.size() == 1 || (num - lst.size()) >= dim) return true;
@@ -506,4 +508,49 @@ bool ind_oracle::operator()(const vector<exponent> & expnts, const set<int> & ls
 
   delete[] tmp;
   return (num - lst.size()) >= (dim - rank);
+}
+
+// Shortcut to find a linearly dependent element faster
+int ind_oracle::retrieve_lin_dep(const vector<exponent> & expnts, const set<int> & lst) const {
+  set<int>::const_iterator it;
+  int i, j, rank = 0, tmpr;
+  map<int, int> mp;
+  bool flg;
+  xor_func * tmp = new xor_func[lst.size()];
+
+  for (i = 0, it = lst.begin(); it != lst.end(); it++, i++) {
+    tmp[i] = expnts[*it].second;
+    mp[i] = *it;
+  }
+
+  for (j = 0; j < lst.size(); j++) {
+    if (tmp[j].test(length)) tmp[j].reset(length);
+  }
+
+  for (i = 0; i < length; i++) {
+    flg = false;
+    for (j = rank; j < lst.size(); j++) {
+      if (tmp[j].test(i)) {
+        // If we haven't yet seen a vector with bit i set...
+        if (!flg) {
+          // If it wasn't the first vector we tried, swap to the front
+          if (j != rank) {
+            swap(tmp[rank], tmp[j]);
+            tmpr = mp[rank];
+            mp[rank] = mp[j];
+            mp[j] = tmpr;
+          }
+          flg = true;
+        } else {
+          tmp[j] ^= tmp[rank];
+          if (tmp[j].none()) return mp[j];
+        }
+      }
+    }
+    if (flg) rank++;
+  }
+
+  delete[] tmp;
+  assert((num - lst.size()) >= (dim - rank));
+  return -1;
 }
