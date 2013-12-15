@@ -65,7 +65,7 @@ void add_to_partition(partitioning & ret, int i, const vector<T> & elts, const o
   deque<path> node_q;
   path t;
   path_iterator p;
-  bool marked[elts.size()], flag;
+  bool marked[elts.size()], flag, bg_flg;
   int tmp;
   set<int> * newset;
 
@@ -106,18 +106,18 @@ void add_to_partition(partitioning & ret, int i, const vector<T> & elts, const o
             if (!marked[*yi]) {
               // Generate an iterator to the position before yi
               zi = yi;
-              zi--;
+              if (zi != Si->begin()) zi--;
               // Take yi out
               tmp = *yi;
               Si->erase(yi);
               if (oracle(elts, *Si)) {
                 // Put yi back in
-                yi = Si->insert(zi, tmp);
+                yi = Si->insert(Si->begin(), tmp);
                 // Add yi to the queue
                 node_q.push_back(path(*yi, Si, t));
                 marked[*yi] = true;
               } else {
-                yi = Si->insert(zi, tmp);
+                yi = Si->insert(Si->begin(), tmp);
               }
             }
           }
@@ -126,7 +126,6 @@ void add_to_partition(partitioning & ret, int i, const vector<T> & elts, const o
         }
       }
     }
-
   }
 
   // We were unsuccessful trying to edit the current partitions
@@ -155,28 +154,11 @@ template <class T, typename oracle_type>
 void repartition(partitioning & part, const vector<T> & elts, const oracle_type & oracle) {
   int tmp;
   partitioning::iterator Si;
-  set<int>::iterator yi, zi;
+  set<int>::iterator yi;
   
   list<int> acc;
 
   for (Si = part.begin(); Si != part.end(); Si++) {
-    /* old version
-    if (!oracle(elts, *Si)) {
-      for (yi = Si->begin(); yi != Si->end(); yi++) {
-        nums++;
-        zi = yi;
-        zi--;
-        tmp = *yi;
-        Si->erase(yi);
-        if (oracle(elts, *Si)) {
-          acc.push_back(tmp);
-          break;
-        } else {
-          yi = Si->insert(zi, tmp);
-        }
-      }
-    }
-    */
     tmp = oracle.retrieve_lin_dep(elts, *Si);
     if (tmp != -1) {
       Si->erase(tmp);

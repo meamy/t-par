@@ -34,6 +34,7 @@ int main(int argc, char *argv[]) {
                                  else if ((string)argv[i] == "-synth=ADHOC") synth_method = AD_HOC;
                                  else if ((string)argv[i] == "-synth=GAUSS") synth_method = GAUSS;
                                  else if ((string)argv[i] == "-synth=PMH") synth_method = PMH;
+                                 else if ((string)argv[i] == "-log") disp_log = true;
 
 	circuit.input(cin);
 
