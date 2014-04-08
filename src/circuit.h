@@ -45,6 +45,7 @@ struct dotqc {
   void clear() {n = 0; m = 0; names.clear(); zero.clear(); circ.clear();}
   void append(pair<string, list<string> > gate);
   void remove_swaps();
+  int count_t_depth();
   void print_stats();
   void remove_ids();
 };
@@ -74,6 +75,7 @@ struct character {
   void output(ostream& out);
   void print() {output(cout);}
   void parse_circuit(dotqc & input);
+  void add_ancillae(int num);
   dotqc synthesize();
 };
 

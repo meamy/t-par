@@ -354,6 +354,13 @@ gatelist CNOT_synth(int n, xor_func * bits, const string * names) {
   gatelist acc, tmp;
   int i, j, m = (int)(log((double)n) / (log(2) * 2));
 
+  for (j = 0; j < n; j++) {
+    if (bits[j].test(n)) {
+      bits[j].reset(n);
+      acc.splice(acc.begin(), x_com(j, names));
+    }
+  }
+
   acc.splice(acc.end(), Lwr_CNOT_synth(n, m, bits, names, false));
   for (i = 0; i < n; i++) {
     for (j = i + 1; j < n; j++) {

@@ -28,20 +28,29 @@ int main(int argc, char *argv[]) {
   dotqc circuit, synth;
   bool full_character = true;
   bool post_process = true;
+  int anc = 0;
   // Quick and dirty solution, don't judge me
-  for (int i = 0; i < argc; i++) if ((string)argv[i] == "-no-hadamard") full_character = false;
+  for (int i = 0; i < argc; i++) 
+       if ((string)argv[i] == "-no-hadamard") full_character = false;
+  else if ((string)argv[i] == "-ancillae") anc = atoi(argv[i+1]);
   else if ((string)argv[i] == "-no-post-process") post_process = false;
   else if ((string)argv[i] == "-synth=ADHOC") synth_method = AD_HOC;
   else if ((string)argv[i] == "-synth=GAUSS") synth_method = GAUSS;
   else if ((string)argv[i] == "-synth=PMH") synth_method = PMH;
   else if ((string)argv[i] == "-log") disp_log = true;
 
+  if (disp_log) cerr << "Reading circuit...\n" << flush;
   circuit.input(cin);
+  cout << "# Original circuit\n" << flush;
+  circuit.print_stats();
+  cout << flush;
 
+  circuit.remove_ids();
   if (full_character) {
     character c;
     if (disp_log) cerr << "Parsing circuit...\n" << flush;
     c.parse_circuit(circuit);
+    if (anc != 0) c.add_ancillae(anc);
     if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
     clock_gettime(CLOCK_MONOTONIC, &start);
     synth = c.synthesize();
@@ -56,16 +65,17 @@ int main(int argc, char *argv[]) {
     clock_gettime(CLOCK_MONOTONIC, &end);
     synth = meta.to_dotqc();
   }
-  cout << fixed << setprecision(3);
-  cout << "# Time: " << (end.tv_sec + (double)end.tv_nsec/1000000000) 
-    - (start.tv_sec + (double)start.tv_nsec/1000000000) << " s\n";
 
   if (post_process) {
     if (disp_log) cerr << "Applying post-processing...\n" << flush;
     synth.remove_swaps();
     synth.remove_ids();
   }
+  cout << "# Optimized circuit\n";
   synth.print_stats();
+  cout << fixed << setprecision(3);
+  cout << "#   Time: " << (end.tv_sec + (double)end.tv_nsec/1000000000) 
+    - (start.tv_sec + (double)start.tv_nsec/1000000000) << " s\n";
   synth.print();
 
   return 0;

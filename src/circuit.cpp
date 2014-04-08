@@ -21,6 +21,7 @@ Author: Matthew Amy
 
 #include "circuit.h"
 #include <algorithm>
+#include <sstream>
 
 //----------------------------------------- DOTQC stuff
 
@@ -123,6 +124,43 @@ void dotqc::output(ostream& out) {
   out << "END\n";
 }
 
+int max_depth(map<string, int> & depths, list<string> & names) {
+  list<string>::const_iterator it;
+  int max = 0;
+
+  for (it = names.begin(); it != names.end(); it++) {
+    if (depths[*it] > max) max = depths[*it];
+  }
+
+  return max;
+}
+
+// Compute T-depth
+int dotqc::count_t_depth() {
+  gatelist::reverse_iterator it;
+  list<string>::const_iterator ti;
+  map<string, int> current_t_depth;
+  int d;
+
+  for (ti = names.begin(); ti != names.end(); ti++) {
+    current_t_depth[*ti] = 0;
+  }
+
+  for (it = circ.rbegin(); it != circ.rend(); it++) {
+    d = max_depth(current_t_depth, it->second);
+    if ((it->first == "T") || (it->first == "T*")) {
+      d = d + 1;
+    } else if ((it->first == "Z") && (it->second.size() >= 3)) {
+      d = d + 3;
+    }
+    for (ti = it->second.begin(); ti != it->second.end(); ti++) {
+      current_t_depth[*ti] = d;
+    }
+  }
+
+  return max_depth(current_t_depth, names);
+}
+
 // Gather statistics and print
 void dotqc::print_stats() {
   int H = 0;
@@ -146,7 +184,11 @@ void dotqc::print_stats() {
         tdepth++;
       }
     } else if (ti->first == "P" || ti->first == "P*") P++;
-    else if (ti->first == "Z") Z++;
+    else if (ti->first == "Z" && ti->second.size() == 3) {
+      tdepth += 3;
+      T += 7;
+      cnot += 7;
+    } else if (ti->first == "Z") Z++;
     else {
       if (ti->first == "tof" && ti->second.size() == 2) cnot++;
       else if (ti->first == "tof" || ti->first == "X") X++;
@@ -156,14 +198,16 @@ void dotqc::print_stats() {
     }
   }
 
-  cout << "# H: " << H << "\n";
-  cout << "# cnot: " << cnot << "\n";
-  cout << "# X: " << X << "\n";
-  cout << "# T: " << T << "\n";
-  cout << "# P: " << P << "\n";
-  cout << "# Z: " << Z << "\n";
-  cout << "# tdepth: " << tdepth << "\n";
-  cout << "# qubits used: " << qubits.size() << "\n";
+  cout << "#   qubits: " << names.size() << "\n";
+  cout << "#   qubits used: " << qubits.size() << "\n";
+  cout << "#   H: " << H << "\n";
+  cout << "#   cnot: " << cnot << "\n";
+  cout << "#   X: " << X << "\n";
+  cout << "#   T: " << T << "\n";
+  cout << "#   P: " << P << "\n";
+  cout << "#   Z: " << Z << "\n";
+  cout << "#   tdepth (by partitions): " << tdepth << "\n";
+  cout << "#   tdepth (by critical paths): " << count_t_depth() << "\n";
 
 }
 
@@ -517,6 +561,51 @@ void character::parse_circuit(dotqc & input) {
   }
 }
 
+void character::add_ancillae(int num) {
+  int num_qubits = n + m + num;
+  stringstream ss;
+
+  int new_m = m + num;
+  int i;
+  string * new_names = new string[num_qubits];
+  bool * new_zero    = new bool[num_qubits];
+  xor_func * new_out = new xor_func[num_qubits];
+  xor_func * new_wires;
+
+  for (list<Hadamard>::iterator it = hadamards.begin(); it != hadamards.end(); it++) {
+    new_wires = new xor_func[num_qubits];
+    for (i = 0; i < num_qubits; i++) {
+      if (i < (n + m)) new_wires[i] = it->wires[i];
+      else new_wires[i] = xor_func(n + h + 1, 0);
+    }
+    delete[] it->wires;
+    it->wires = new_wires;
+  }
+
+  for (i = 0; i < num_qubits; i++) {
+    if (i < (n + m)) {
+      new_names[i] = names[i];
+      new_zero[i]  = zero[i];
+      new_out[i]   = outputs[i];
+    } else {
+      ss.str("");
+      ss << "__anc" << i - (n + m);
+      new_names[i] = ss.str();
+      new_zero[i] = true;
+      new_out[i] = xor_func(n + h + 1, 0);
+    }
+  }
+
+  delete[] names;
+  delete[] zero;
+  delete[] outputs;
+
+  names = new_names;
+  zero = new_zero;
+  outputs = new_out;
+  m = new_m;
+}
+  
 //---------------------------- Synthesis
 
 dotqc character::synthesize() {
