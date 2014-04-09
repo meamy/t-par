@@ -438,7 +438,7 @@ void character::output(ostream& out) {
 void insert_phase (unsigned char c, xor_func f, vector<exponent> & phases) {
   vector<exponent>::iterator it;
   bool flg = false;
-  for (it = phases.begin(); it != phases.end(); it++) {
+  for (it = phases.begin(); it != phases.end() && !flg; it++) {
     if (it->second == f) {
       it->first = (it->first + c) % 8;
       flg = true;
@@ -714,6 +714,149 @@ dotqc character::synthesize() {
       construct_circuit(phase_expts, floats[1], wires, outputs, n + m, n + h, names));
   if (disp_log) cerr << "  " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
 
+  return ret;
+}
+
+dotqc character::synthesize_unbounded() {
+  partitioning floats[2], frozen[2]; 
+  dotqc ret;
+  xor_func mask(n + h + 1, 0);      // Tells us what values we have prepared
+  xor_func * wires =  new xor_func[n + m]; // Current state of the wires
+  list<int> remaining[2];          // Which terms we still have to partition
+  int dim = n, tmp1, tmp2, tdepth = 0, h_count = 1, applied = 0, j;
+  ind_oracle oracle(n + m, dim, n + h);
+  list<pair<string, list<string> > > circ;
+  list<Hadamard>::iterator it;
+
+  // initialize some stuff
+  mask.set(n + h);
+  for (int i = 0, j = 0; i < n + m; i++) {
+    wires[i] = xor_func(n + h + 1, 0);
+    if (!zero[i]) {
+      wires[i].set(j);
+      mask.set(j++);
+    }
+  }
+
+  // initialize the remaining list
+  for (int i = 0; i < phase_expts.size(); i++) {
+    if (phase_expts[i].first % 2 == 1) remaining[0].push_back(i);
+    else if (phase_expts[i].first != 0) remaining[1].push_back(i);
+  }
+
+  // create an initial partition
+  // cerr << "Adding new functions to the partition... " << flush;
+  for (j = 0; j < 2; j++) {
+    for (list<int>::iterator it = remaining[j].begin(); it != remaining[j].end();) {
+      xor_func tmp = (~mask) & (phase_expts[*it].second);
+      if (tmp.none()) {
+        if (floats[j].size() == 0) floats[j].push_back(set<int>());
+        (floats[j].begin())->insert(*it);
+        it = remaining[j].erase(it);
+      } else it++;
+    }
+  }
+  if (disp_log) cerr << "  " << phase_expts.size() - (remaining[0].size() + remaining[1].size())  
+    << "/" << phase_expts.size() << " phase rotations partitioned\n" << flush;
+
+  for (it = hadamards.begin(); it != hadamards.end(); it++, h_count++) {
+    // 1. freeze partitions that are not disjoint from the hadamard input
+    // 2. construct CNOT+T circuit
+    // 3. apply the hadamard gate
+    // 4. add new functions to the partition
+    if (disp_log) cerr << "  Hadamard " << h_count << "/" << hadamards.size() << "\n" << flush;
+
+    tmp1 = compute_rank(n + m, n + h, wires);
+    // determine frozen partitions
+    for (j = 0; j < 2; j++) {
+      frozen[j] = freeze_partitions(floats[j], it->in);
+      applied += num_elts(frozen[j]);
+      // determine if we need to add ancillae
+      if (frozen[j].size() != 0) {
+        tmp2 = compute_rank(n + h, phase_expts, *(frozen[j].begin()));
+        int etc = ((tmp1 - tmp2 < 0)?tmp1:tmp1 - tmp2) + num_elts(frozen[j]) - n - m;
+        if (etc > 0) {
+          xor_func * tmp = new xor_func[n + m + etc];
+          for (int i = 0; i < n + m + etc; i++) {
+            if (i < n + m) tmp[i] = wires[i];
+            else tmp[i] = xor_func(n + h + 1, 0);
+          }
+          delete[] wires;
+          wires = tmp;
+          add_ancillae(etc);
+        }
+      }
+    }
+
+    if (disp_log) cerr << "    Synthesizing T-layer\n" << flush;
+    // Construct {CNOT, T} subcircuit for the frozen partitions
+    ret.circ.splice(ret.circ.end(), 
+        construct_circuit(phase_expts, frozen[0], wires, wires, n + m, n + h, names));
+    ret.circ.splice(ret.circ.end(), 
+        construct_circuit(phase_expts, frozen[1], wires, it->wires, n + m, n + h, names));
+    for (int i = 0; i < n + m; i++) {
+      wires[i] = it->wires[i];
+    }
+    if (disp_log) cerr << "    " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
+
+    // Apply Hadamard gate
+    ret.circ.push_back(make_pair("H", list<string>(1, names[it->qubit])));
+    wires[it->qubit].reset();
+    wires[it->qubit].set(it->prep);
+    mask.set(it->prep);
+
+    // Add new functions to the partition
+    for (j = 0; j < 2; j++) {
+      for (list<int>::iterator it = remaining[j].begin(); it != remaining[j].end();) {
+        xor_func tmp = (~mask) & (phase_expts[*it].second);
+        if (tmp.none()) {
+          if (floats[j].size() == 0) floats[j].push_back(set<int>());
+          (floats[j].begin())->insert(*it);
+          it = remaining[j].erase(it);
+        } else it++;
+      }
+    }
+    if (disp_log) cerr << "    " << phase_expts.size() - (remaining[0].size() + remaining[1].size())
+      << "/" << phase_expts.size() << " phase rotations partitioned\n" << flush;
+  }
+
+  applied += num_elts(floats[0]) + num_elts(floats[1]);
+  // Construct the final {CNOT, T} subcircuit
+
+  // determine if we need to add ancillae
+  tmp1 = compute_rank(n + m, n + h, wires);
+  for (j = 0; j < 2; j++) {
+    if (floats[j].size() != 0) {
+      for (j = 0; j < 2; j++) {
+        tmp2 = compute_rank(n + h, phase_expts, *(floats[j].begin()));
+        int etc = tmp1 - tmp2 + num_elts(floats[j]) - n - m;
+        if (etc > 0) {
+          if (disp_log) cerr << "    " << "Adding " << etc << " ancilla(e)\n" << flush;
+          xor_func * tmp = new xor_func[n + m + etc];
+          for (int i = 0; i < n + m + etc; i++) {
+            if (i < n + m) tmp[i] = wires[i];
+            else tmp[i] = xor_func(n + h + 1, 0);
+          }
+          delete[] wires;
+          wires = tmp;
+          add_ancillae(etc);
+        }
+      }
+    }
+  }
+
+  ret.circ.splice(ret.circ.end(), 
+      construct_circuit(phase_expts, floats[0], wires, wires, n + m, n + h, names));
+  ret.circ.splice(ret.circ.end(), 
+      construct_circuit(phase_expts, floats[1], wires, outputs, n + m, n + h, names));
+  if (disp_log) cerr << "  " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
+
+  ret.n = n;
+  ret.m = m;
+  for (int i = 0, j = 0; i < n + m; i++) {
+    ret.names.push_back(names[i]);
+    ret.zero[names[i]] = zero[i];
+  }
   return ret;
 }
 

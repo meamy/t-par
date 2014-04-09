@@ -77,3 +77,7 @@ int num_elts(partitioning & part) {
   }
   return tot;
 }
+
+partitioning create(set<int> & st) {
+  return partitioning(1, st);
+}

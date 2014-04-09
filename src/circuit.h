@@ -77,6 +77,7 @@ struct character {
   void parse_circuit(dotqc & input);
   void add_ancillae(int num);
   dotqc synthesize();
+  dotqc synthesize_unbounded();
 };
 
 // ------------------------- {CNOT, T} version

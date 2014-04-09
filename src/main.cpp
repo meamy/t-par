@@ -32,7 +32,18 @@ int main(int argc, char *argv[]) {
   // Quick and dirty solution, don't judge me
   for (int i = 0; i < argc; i++) 
        if ((string)argv[i] == "-no-hadamard") full_character = false;
-  else if ((string)argv[i] == "-ancillae") anc = atoi(argv[i+1]);
+  else if ((string)argv[i] == "-ancillae") {
+    i++;
+    if ((string)argv[i] == "n") anc = -1;
+    else if ((string)argv[i] == "unbounded") anc = -2;
+    else {
+      anc = atoi(argv[i]);
+      if (anc <= 0) {
+        cerr << "ERROR: less than 0 ancillae\n";
+        exit(0);
+      }
+    }
+  }
   else if ((string)argv[i] == "-no-post-process") post_process = false;
   else if ((string)argv[i] == "-synth=ADHOC") synth_method = AD_HOC;
   else if ((string)argv[i] == "-synth=GAUSS") synth_method = GAUSS;
@@ -50,10 +61,12 @@ int main(int argc, char *argv[]) {
     character c;
     if (disp_log) cerr << "Parsing circuit...\n" << flush;
     c.parse_circuit(circuit);
-    if (anc != 0) c.add_ancillae(anc);
+    if (anc == -1) c.add_ancillae(c.n + c.m);
+    else if (anc > 0) c.add_ancillae(anc);
     if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
     clock_gettime(CLOCK_MONOTONIC, &start);
-    synth = c.synthesize();
+    if (anc == -2) synth = c.synthesize_unbounded();
+    else           synth = c.synthesize();
     clock_gettime(CLOCK_MONOTONIC, &end);
   } else {
     metacircuit meta;

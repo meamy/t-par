@@ -74,16 +74,10 @@ gatelist x_com(int a, const string * names) {
 }
 
 // Make triangular to determine the rank
-int compute_rank(int m, int n, const xor_func * bits) {
+int compute_rank_dest(int m, int n, xor_func * tmp) {
   int k, i, j;
   int ret = 0;
   bool flg;
-
-  // Make a copy of the bitset
-  xor_func * tmp = new xor_func[m];
-  for(int i = 0; i < m; i++) {
-    tmp[i] = bits[i];
-  }
 
   // Make triangular
   for (i = 0; i < n; i++) {
@@ -103,6 +97,31 @@ int compute_rank(int m, int n, const xor_func * bits) {
     if (flg) ret++;
   }
 
+  return ret;
+}
+
+int compute_rank(int m, int n, const xor_func * bits) {
+  int ret;
+
+  // Make a copy of the bitset
+  xor_func * tmp = new xor_func[m];
+  for(int i = 0; i < m; i++) {
+    tmp[i] = bits[i];
+  }
+  ret = compute_rank_dest(m, n, tmp);
+  delete [] tmp;
+  return ret;
+}
+
+int compute_rank(int n, const vector<exponent> & expnts, const set<int> & lst) {
+  int ret;
+  int m = lst.size();
+
+  xor_func * tmp = new xor_func[m];
+  for (int i = 0; i < m; i++) {
+    tmp[i] = expnts[i].second;
+  }
+  ret = compute_rank_dest(m, n, tmp);
   delete [] tmp;
   return ret;
 }
@@ -389,7 +408,6 @@ gatelist construct_circuit(const vector<exponent> & phase,
   set<int>::iterator ti;
   int i;
   bool flg = true;
-
 
   for (i = 0; i < num; i++) flg &= (in[i] == out[i]);
   for (i = 0; i < num; i++) {
