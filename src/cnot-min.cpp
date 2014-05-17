@@ -43,3 +43,5 @@ int min_count(list<int> & candidates, const vector<exponent> & expnts) {
 
   return min_index;
 }
+
+
