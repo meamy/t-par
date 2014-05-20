@@ -78,6 +78,7 @@ struct character {
   void add_ancillae(int num);
   dotqc synthesize();
   dotqc synthesize_unbounded();
+  dotqc synthesize_cnot();
 };
 
 // ------------------------- {CNOT, T} version

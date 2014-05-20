@@ -151,14 +151,14 @@ gatelist to_upper_echelon(int m, int n, xor_func * bits, xor_func * mat, const s
           // If it wasn't the first vector we tried, swap to the front
           if (j != rank) {
             swap(bits[rank], bits[j]);
-            if (mat == NULL) acc.splice(acc.end(), swap_com(rank, j, names));
-            else             swap(mat[rank], mat[j]);
+            if (mat != NULL) swap(mat[rank], mat[j]);
+            acc.splice(acc.end(), swap_com(rank, j, names));
           }
           flg = true;
         } else {
           bits[j] ^= bits[rank];
-          if (mat == NULL) acc.splice(acc.end(), xor_com(rank, j, names));
-          else             mat[j] ^= mat[rank];
+          if (mat != NULL) mat[j] ^= mat[rank];
+          acc.splice(acc.end(), xor_com(rank, j, names));
         }
       }
     }
@@ -176,8 +176,8 @@ gatelist to_lower_echelon(int m, int n, xor_func * bits, xor_func * mat, const s
     for (j = i - 1; j >= 0; j--) {
       if (bits[j].test(i)) {
         bits[j] ^= bits[i];
-        if (mat == NULL) acc.splice(acc.end(), xor_com(i, j, names));
-        else              mat[j] ^= mat[i];
+        if (mat != NULL) mat[j] ^= mat[i];
+        acc.splice(acc.end(), xor_com(i, j, names));
       }
     }
   }
@@ -260,6 +260,41 @@ void compose(int num, xor_func * A, const xor_func * B) {
   to_upper_echelon(num, num, tmp, A, NULL);
   to_lower_echelon(num, num, tmp, A, NULL);
   delete [] tmp;
+}
+
+int min_count(list<int> & candidates, const vector<exponent> & expnts) {
+  int min_index = 0;
+  int min_count = -1;
+  int tmp;
+  list<int>::iterator it;
+
+  for (it = candidates.begin(); it != candidates.end(); it++) {
+    tmp = expnts[*it].second.count();
+    if (min_count == -1 || expnts[*it].second.count() < min_count) {
+      min_index = *it;
+      min_count = tmp;
+    }
+  }
+
+  return min_index;
+}
+
+
+
+void rebase(xor_func & vec, const xor_func * mat, int n) {
+  int sum;
+  xor_func tmp = xor_func(n + 1, 0);
+
+  for (int i = 0; i < n; i++) { 
+    sum = 0;
+    for (int j = 0; j < n; j++)
+      if (vec.test(j) && mat[j].test(i)) sum++;
+    if (sum % 2) tmp.set(i);
+  }
+
+  for (int i = 0; i < n; i++) {
+    vec[i] = tmp[i];
+  }
 }
 
 //------------------------- CNOT synthesis methods

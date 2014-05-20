@@ -860,6 +860,177 @@ dotqc character::synthesize_unbounded() {
   return ret;
 }
 
+dotqc character::synthesize_cnot() {
+  dotqc ret;
+  xor_func mask(n + h + 1, 0);      // Tells us what values we have prepared
+  list<int> remaining;          // Which terms we still have to partition
+  list<int> queue;              
+  list<Hadamard>::iterator it, itx;
+  list<int>::iterator ti;
+  xor_func * wires =  new xor_func[n + m]; // Current state of the wires
+  xor_func * inv =  new xor_func[n + m]; // Current state of the wires
+  int qbit = 0;
+  gatelist tmp;
+
+  // initialize some stuff
+  ret.n = n;
+  ret.m = m;
+  mask.set(n + h);
+  for (int i = 0, j = 0; i < n + m; i++) {
+    ret.names.push_back(names[i]);
+    ret.zero[names[i]] = zero[i];
+    wires[i] = xor_func(n + h + 1, 0);
+    if (!zero[i]) {
+      wires[i].set(j);
+      mask.set(j++);
+    }
+  }
+
+  // initialize the remaining list
+  for (int i = 0; i < phase_expts.size(); i++) remaining.push_back(i);
+
+  for (it = hadamards.begin(); it != hadamards.end(); it++) {
+    for (ti = remaining.begin(); ti != remaining.end();) {
+      xor_func tmp = (~mask) & (phase_expts[*ti].second);
+      if (tmp.none()) {
+        queue.push_back(*ti);
+        ti = remaining.erase(ti);
+      } else ti++;
+    }
+
+    while(!queue.empty()) {
+      cout << "HELLO1\n" << flush;
+      // 1. Find the xor with the smallest hamming distance (just the count)
+      // 2. Choose a qubit to compute that xor into -- i.e. the first bit set
+      // 3. Replace that wire with that xor and reduce to identity
+      //   3.a. First initialize the matrix inv to contain the inverse computation
+      // 4. Reverse the circuit and add the phase gate
+      // 5. Rebase everything -- queue, remaining, each Hadamard's inputs, output function
+      int next = min_count(queue, phase_expts);            // Find xor with smallest hamming distance
+      assert(phase_expts[next].second.any());                 // Sanity check
+      for (qbit = 0; !phase_expts[next].second.test(qbit); qbit++); // Find the first set
+      wires[qbit] = phase_expts[next].second;
+      for (int i = 0; i < n + m; i++) {
+        inv[i] = xor_func(n + h + 1, 0);
+        inv[i].set(i);
+      }
+      cout << "HELLO1.4\n" << flush;
+      tmp = to_lower_echelon(n + m, n + m, wires, inv, names); // Reduce wires to identity & record the matrix in invA
+      cout << "HELLO1.5\n" << flush;
+      tmp.reverse();
+      ret.circ.splice(ret.circ.end(), tmp);  // Splice in the computation
+      list<string> tmp_lst;                            // Apply the phase gate
+      tmp_lst.push_back(names[qbit]);
+      if (phase_expts[next].first <= 4) {
+        if (phase_expts[next].first / 4 == 1) ret.circ.push_back(make_pair("Z", tmp_lst));
+        if (phase_expts[next].first / 2 == 1) ret.circ.push_back(make_pair("P", tmp_lst));
+        if (phase_expts[next].first % 2 == 1) ret.circ.push_back(make_pair("T", tmp_lst));
+      } else {
+        if (phase_expts[next].first == 5 || phase_expts[next].first == 6)
+          ret.circ.push_back(make_pair("P*", tmp_lst));
+        if (phase_expts[next].first % 2 == 1) ret.circ.push_back(make_pair("T*", tmp_lst));
+      }
+      queue.remove(next);                              // Remove the phase
+      cout << "HELLO2\n" << flush;
+      for (ti = queue.begin(); ti != queue.end(); ti++) { // Rebase all phases
+        rebase(phase_expts[*ti].second, inv, n + m);
+      }
+      for (ti = remaining.begin(); ti != remaining.end(); ti++) { // Rebase all phases
+        rebase(phase_expts[*ti].second, inv, n + m);
+      }
+      for (itx = it; itx != hadamards.end(); itx++) {
+        for (int i = 0; i < n + m; i++) {                // Rebase all qubits
+          rebase(itx->wires[i], inv, n + m);
+        }
+      }
+      for (int i = 0; i < n + m; i++) {                // Rebase all qubits
+        rebase(outputs[i], inv, n + m);
+      }
+    }
+
+      cout << "HELLO3\n" << flush;
+    for (int i = 0; i < n + m; i++) {
+      inv[i] = xor_func(n + h + 1, 0);
+      inv[i].set(i);
+    }
+    tmp = to_upper_echelon(n + m, n + m, it->wires, inv, names);
+    tmp.reverse();
+    ret.circ.splice(ret.circ.end(), tmp);
+    tmp = to_lower_echelon(n + m, n + m, it->wires, inv, names);
+    tmp.reverse();
+    ret.circ.splice(ret.circ.end(), tmp);
+    ret.circ.push_back(make_pair("H", list<string>(1, names[it->qubit])));
+    mask.set(it->prep);
+
+      cout << "HELLO4\n" << flush;
+    // Rewrite everything with the new basis vector
+    for (ti = queue.begin(); ti != queue.end(); ti++) { // Rebase all phases
+      rebase(phase_expts[*ti].second, inv, n + m);
+      assert(!phase_expts[*ti].second.test(it->qubit));
+      phase_expts[*ti].second[it->qubit] = phase_expts[*ti].second[it->prep];
+    }
+    for (ti = remaining.begin(); ti != remaining.end(); ti++) { // Rebase all phases
+      rebase(phase_expts[*ti].second, inv, n + m);
+      assert(!phase_expts[*ti].second.test(it->qubit));
+      phase_expts[*ti].second[it->qubit] = phase_expts[*ti].second[it->prep];
+    }
+    for (itx = it; itx != hadamards.end(); itx++) {
+      for (int i = 0; i < n + m; i++) {                // Rebase all qubits
+        rebase(itx->wires[i], inv, n + m);
+        //assert(!itx->wires[i].test(it->qubit));
+        itx->wires[i][it->qubit] = itx->wires[i][it->prep];
+      }
+    }
+    for (int i = 0; i < n + m; i++) {                // Rebase all qubits
+      rebase(outputs[i], inv, n + m);
+      assert(!outputs[i].test(it->qubit));
+      outputs[i][it->qubit] = outputs[i][it->prep];
+    }
+  }
+      cout << "HELLO5\n" << flush;
+
+  while(!queue.empty()) {
+    int next = min_count(queue, phase_expts);            // Find xor with smallest hamming distance
+    assert(phase_expts[next].second.any());                 // Sanity check
+    for (qbit = 0; !phase_expts[next].second.test(qbit); qbit++); // Find the first set
+    wires[qbit] = phase_expts[next].second;
+    for (int i = 0; i < n + m; i++) {
+      inv[i] = xor_func(n + h + 1, 0);
+      inv[i].set(i);
+    }
+    tmp = to_lower_echelon(n + m, n + m, wires, inv, names); // Reduce wires to identity & record the matrix in invA
+    tmp.reverse();
+    ret.circ.splice(ret.circ.end(), tmp);  // Splice in the computation
+    list<string> tmp_lst;                            // Apply the phase gate
+    tmp_lst.push_back(names[qbit]);
+    if (phase_expts[next].first <= 4) {
+      if (phase_expts[next].first / 4 == 1) ret.circ.push_back(make_pair("Z", tmp_lst));
+      if (phase_expts[next].first / 2 == 1) ret.circ.push_back(make_pair("P", tmp_lst));
+      if (phase_expts[next].first % 2 == 1) ret.circ.push_back(make_pair("T", tmp_lst));
+    } else {
+      if (phase_expts[next].first == 5 || phase_expts[next].first == 6)
+        ret.circ.push_back(make_pair("P*", tmp_lst));
+      if (phase_expts[next].first % 2 == 1) ret.circ.push_back(make_pair("T*", tmp_lst));
+    }
+    queue.remove(next);                              // Remove the phase
+    for (ti = queue.begin(); ti != queue.end(); ti++) { // Rebase all phases
+      rebase(phase_expts[*ti].second, inv, n + m);
+    }
+    for (int i = 0; i < n + m; i++) {                // Rebase all qubits
+      rebase(outputs[i], inv, n + m);
+    }
+  }
+
+  tmp = to_upper_echelon(n + m, n + h, outputs, NULL, names);
+  tmp.reverse();
+  ret.circ.splice(ret.circ.end(), tmp);
+  tmp = to_lower_echelon(n + m, n + m, outputs, NULL, names);
+  tmp.reverse();
+  ret.circ.splice(ret.circ.end(), tmp);
+
+  return ret;
+}
+
 //-------------------------------- old {CNOT, T} version code. Still used for the "no hadamards" option
 
 void metacircuit::partition_dotqc(dotqc & input) {

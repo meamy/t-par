@@ -51,6 +51,11 @@ void print_wires(const xor_func * wires, int num, int dim);
 int compute_rank(int m, int n, const xor_func * bits);
 int compute_rank(int n, const vector<exponent> & expnts, const set<int> & lst);
 
+gatelist to_upper_echelon(int m, int n, xor_func * bits, xor_func * mat, const string * names);
+gatelist to_lower_echelon(int m, int n, xor_func * bits, xor_func * mat, const string * names);
+int min_count(list<int> & candidates, const vector<exponent> & expnts);
+void rebase(xor_func & vec, const xor_func * mat, int n);
+
 gatelist construct_circuit(const vector<exponent> & phase, 
     const partitioning & part, 
     xor_func * in, 
