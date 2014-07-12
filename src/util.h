@@ -1,20 +1,20 @@
 /*--------------------------------------------------------------------
-Tpar - T-gate optimization for quantum circuits
-Copyright (C) 2013  Matthew Amy and The University of Waterloo,
-Institute for Quantum Computing, Quantum Circuits Group
+  Tpar - T-gate optimization for quantum circuits
+  Copyright (C) 2013  Matthew Amy and The University of Waterloo,
+  Institute for Quantum Computing, Quantum Circuits Group
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Author: Matthew Amy
 ---------------------------------------------------------------------*/
@@ -47,12 +47,14 @@ class ind_oracle {
     bool operator()(const vector<exponent> & expnts, const set<int> & lst) const;
 };
 
+void print_wires(const xor_func * wires, int num, int dim);
 int compute_rank(int m, int n, const xor_func * bits);
+int compute_rank(int n, const vector<exponent> & expnts, const set<int> & lst);
 
 gatelist construct_circuit(const vector<exponent> & phase, 
-                           const partitioning & part, 
-                           xor_func * in, 
-                           const xor_func * out,
-                           int num,
-                           int dim,
-                           const string * names);
+    const partitioning & part, 
+    xor_func * in, 
+    const xor_func * out,
+    int num,
+    int dim,
+    const string * names);

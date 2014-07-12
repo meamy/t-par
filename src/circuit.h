@@ -1,20 +1,20 @@
 /*--------------------------------------------------------------------
-Tpar - T-gate optimization for quantum circuits
-Copyright (C) 2013  Matthew Amy and The University of Waterloo,
-Institute for Quantum Computing, Quantum Circuits Group
+  Tpar - T-gate optimization for quantum circuits
+  Copyright (C) 2013  Matthew Amy and The University of Waterloo,
+  Institute for Quantum Computing, Quantum Circuits Group
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Author: Matthew Amy
 ---------------------------------------------------------------------*/
@@ -33,18 +33,19 @@ using namespace std;
 
 // Internal representation of a .qc circuit circuit
 struct dotqc {
-	int n;                   // number of unknown inputs
-	int m;                   // number of known inputs (initialized to |0>)
-	list<string> names;      // names of qubits
-	map<string, bool> zero;  // mapping from qubits to 0 (non-zero) or 1 (zero)
-	gatelist circ;           // Circuit
+  int n;                   // number of unknown inputs
+  int m;                   // number of known inputs (initialized to |0>)
+  list<string> names;      // names of qubits
+  map<string, bool> zero;  // mapping from qubits to 0 (non-zero) or 1 (zero)
+  gatelist circ;           // Circuit
 
-	void input(istream& in);
-	void output(ostream& out);
-	void print() {output(cout);}
-	void clear() {n = 0; m = 0; names.clear(); zero.clear(); circ.clear();}
+  void input(istream& in);
+  void output(ostream& out);
+  void print() {output(cout);}
+  void clear() {n = 0; m = 0; names.clear(); zero.clear(); circ.clear();}
   void append(pair<string, list<string> > gate);
   void remove_swaps();
+  int count_t_depth();
   void print_stats();
   void remove_ids();
 };
@@ -74,7 +75,9 @@ struct character {
   void output(ostream& out);
   void print() {output(cout);}
   void parse_circuit(dotqc & input);
+  void add_ancillae(int num);
   dotqc synthesize();
+  dotqc synthesize_unbounded();
 };
 
 // ------------------------- {CNOT, T} version

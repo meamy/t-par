@@ -1,6 +1,18 @@
-Tpar -- A T-gate optimizing resynthesis algorithm (arXiv:1303.2042)
-
+T-par
+=============================
 Written by Matthew Amy
+
+T-par is a quantum circuit optimizer utilizing sum-over-paths representations
+to analyze and re-synthesize Clifford+T circuits.
+
+The default algorithm is described in the paper "Polynomial-time T-depth
+Optimization of Clifford+T circuits via Matroid Partitioning" (arXiv:1303.2042).
+It creates a semantic representation of a quantum circuit where the phase of a
+basis state in the output is given by a polynomial over the input and "path"
+variables. This representation causes individual phase gates to be combined or
+cancelled in the polynomial, reducing the total number of phase gates (notably,
+T gates). Matroid partitioning is then used to optimally parallelize the
+remaining phase gates during resynthesis.
 
 We kindly request that anyone using this code to optimize circuits
 acknowledges the tool and/or the paper on which it is based in their work
@@ -16,38 +28,51 @@ tpar requires the following libraries:
 
 Boost should be available through your package manager. Additionally, 
 your compiler needs to support the c++0x/c++11 standard, or otherwise
-the code will likely require some modifications.
+the code will likely require some (minor) modifications.
 
 USAGE
 ------------------------------
 Run tpar with
-  tpar [options]
+  ./tpar [options]
 
 tpar takes a circuit in the .qc format (a description can be found at
-http://qcirc.iqc.uwaterloo.ca/QCViewer/QCViewerDocumentation.pdf) from
-standard input and outputs the resulting .qc circuit to standard output.
-The circuit can only contain the single qubit gates H, P, P*, T, T*, X,
-Y, Z, and the two qubit tof (CNOT) gate. It also accepts doubly controlled
-Z gates, i.e. Z a b c.
+https://github.com/aparent/QCViewer) from standard input and outputs the
+resulting .qc circuit to standard output. The circuit can only contain the 
+single qubit gates H, P, P*, T, T*, X, Y, Z, and the two qubit tof (CNOT) gate.
+It also accepts doubly controlled Z gates, i.e. Z a b c.
 
-A lot of extra output is supplied on standard error. There is currently no
-option to turn it off, so either stderr or stdout should be redirected as
-necessary.
+Demos are also available in the subfolder "demos". For example, to compute an
+optimized 6-bit cucarro adder, use the command
 
-Currently, the only options available are
-  -no-hadamard - This option performs the Tpar optimization only on subcircuits 
-                 between H gates, analogous to the original {CNOT, T} algorithm 
-                 described in arXiv:1303.2042.
-  -no-post-process - This option turns off post processing of the circuit to 
+  ./tpar < demos/cucarro_adder.qc
+
+OPTIONS
+------------------------------
+Currently, the available options are
+
+  -ancillae [0.., unbounded] - Specify the number of ancillae to add during
+                               resynthesis. A natural number argument adds that
+                               number of ancillae, while "unbounded" allows the
+                               synthesizer to use as many ancillae as needed to
+                               maximally parallelize phase gates
+
+  -no-hadamard - Perform the T-par algorithm only on {CNOT, T} subcircuits. It
+                 may provide better T-parallelization in some circuits
+
+  -synth=[ADHOC,GAUSS,PMH] - Specify the synthesis method for linear reversible
+                             circuits (i.e. {CNOT} circuits). ADHOC is an
+                             informal (but correct) Gaussian elimination type 
+                             algorithm, GAUSS is formal Gaussian elimination,
+                             and PMH is the asymptotically optimal algorithm
+                             described in "Optimal synthesis of linear
+                             reversible circuits"
+
+  -no-post-process - Turns off post processing of the synthesized circuit to
                      remove swap gates and trivial identities. Turning this off
                      makes significant difference in runtime on very large 
-                     circuits.
+                     circuits
 
-The algorithm is described in arXiv:1303.2042, but essentially it generates
-a sum over paths type description of the circuit where phases and qubit
-states are linear Boolean functions of the input variables and Hadamards
-generate new variables. It then uses matroid theory to group phases
-together intelligently and lay them out in parallel stages.
+  -log - Display a log of the algorithm's process
 
 This README is far from complete, so please feel free to email me at 
 matt.e.amy@gmail.com if you have any questions or if you find any bugs.
