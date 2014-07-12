@@ -60,21 +60,21 @@ struct Hadamard {
 
 // Characteristic of a circuit
 struct character {
-	int n;                        // number of unknown inputs
-	int m;                        // number of zero-initialized ancilla qubits
+  int n;                        // number of unknown inputs
+  int m;                        // number of zero-initialized ancilla qubits
   int h;                        // number of hadamards
-	string           * names;     // names of qubits
+  string           * names;     // names of qubits
   bool             * zero;      // Which qubits start as 0
   map<int, int>      val_map;   // which value corresponds to which qubit
-	vector<exponent> phase_expts; // a list of exponents of \omega in the mapping
-	xor_func         * outputs;   // the xors computed into each qubit
+  vector<exponent> phase_expts; // a list of exponents of \omega in the mapping
+  xor_func         * outputs;   // the xors computed into each qubit
   // TODO: make this a dependency graph instead
   list<Hadamard>   hadamards;   // a list of the hadamards in the order we saw them
 
-	void output(ostream& out);
-	void print() {output(cout);}
+  void output(ostream& out);
+  void print() {output(cout);}
   void parse_circuit(dotqc & input);
-	dotqc synthesize();
+  dotqc synthesize();
 };
 
 // ------------------------- {CNOT, T} version
@@ -82,15 +82,15 @@ struct character {
 enum circuit_type { CNOTT, OTHER, UNKNOWN };
 
 struct metacircuit {
-	int n;                        // number of unknown inputs
-	int m;                        // number of known inputs (initialized to |0>)
-	list<string> names;           // names of qubits
-	map<string, bool> zero;       // mapping from qubits to 0 (non-zero) or 1 (zero)
-	list<pair<circuit_type, dotqc> > circuit_list;     // A list of subcircuits
+  int n;                        // number of unknown inputs
+  int m;                        // number of known inputs (initialized to |0>)
+  list<string> names;           // names of qubits
+  map<string, bool> zero;       // mapping from qubits to 0 (non-zero) or 1 (zero)
+  list<pair<circuit_type, dotqc> > circuit_list;     // A list of subcircuits
 
-	void partition_dotqc(dotqc & input);
-	void output(ostream& out);
-	void print() {output(cout);}
-	void optimize();
-	dotqc to_dotqc();
+  void partition_dotqc(dotqc & input);
+  void output(ostream& out);
+  void print() {output(cout);}
+  void optimize();
+  dotqc to_dotqc();
 };

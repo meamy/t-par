@@ -19,54 +19,45 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 Author: Matthew Amy
 ---------------------------------------------------------------------*/
 
-#include "circuit.h"
 #include <cstdio>
 #include <iomanip>
+#include <fstream>
+#include "equiv_check.h"
 
 int main(int argc, char *argv[]) {
   struct timespec start, end;
-	dotqc circuit, synth;
-  bool full_character = true;
-  bool post_process = true;
-  // Quick and dirty solution, don't judge me
-  for (int i = 0; i < argc; i++) if ((string)argv[i] == "-no-hadamard") full_character = false;
-                                 else if ((string)argv[i] == "-no-post-process") post_process = false;
-                                 else if ((string)argv[i] == "-synth=ADHOC") synth_method = AD_HOC;
-                                 else if ((string)argv[i] == "-synth=GAUSS") synth_method = GAUSS;
-                                 else if ((string)argv[i] == "-synth=PMH") synth_method = PMH;
-                                 else if ((string)argv[i] == "-log") disp_log = true;
+  dotqc circuit, tmp;
+  ifstream in;
+  character c;
 
-	circuit.input(cin);
-
-  if (full_character) {
-    character c;
-    if (disp_log) cerr << "Parsing circuit...\n" << flush;
-    c.parse_circuit(circuit);
-    if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    synth = c.synthesize();
-    clock_gettime(CLOCK_MONOTONIC, &end);
-  } else {
-    metacircuit meta;
-    if (disp_log) cerr << "Parsing circuit...\n" << flush;
-    meta.partition_dotqc(circuit);
-    if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    meta.optimize();
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    synth = meta.to_dotqc();
+  for (int i = 1; i < argc; i++) {
+    in.open(argv[i], ifstream::in);
+    if (i == 1) circuit.input(in);
+    else {
+      tmp.clear();
+      tmp.input(in);
+      for (gatelist::iterator it = tmp.circ.begin(); it != tmp.circ.end(); it++) {
+        circuit.append(*it);
+      }
+    }
+    in.close();
   }
+
+  circuit.remove_swaps();
+  circuit.remove_ids();
+//  circuit.print();
+
+  if (disp_log) cerr << "Parsing circuit...\n" << flush;
+  c.parse_circuit(circuit);
+  if (disp_log) cerr << "Checking circuit...\n" << flush;
+  clock_gettime(CLOCK_MONOTONIC, &start);
+  unquantified_sum(c);
+//  unquantified(c);
+  clock_gettime(CLOCK_MONOTONIC, &end);
+
   cout << fixed << setprecision(3);
   cout << "# Time: " << (end.tv_sec + (double)end.tv_nsec/1000000000) 
                       - (start.tv_sec + (double)start.tv_nsec/1000000000) << " s\n";
-
-  if (post_process) {
-    if (disp_log) cerr << "Applying post-processing...\n" << flush;
-    synth.remove_swaps();
-    synth.remove_ids();
-  }
-  synth.print_stats();
-  synth.print();
 
   return 0;
 }
