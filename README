@@ -6,7 +6,7 @@ T-par is a quantum circuit optimizer utilizing sum-over-paths representations
 to analyze and re-synthesize Clifford+T circuits.
 
 The default algorithm is described in the paper "Polynomial-time T-depth
-Optimization of Clifford+T circuits via Matroid Partitioning" (arXive:1303.2042).
+Optimization of Clifford+T circuits via Matroid Partitioning" (arXiv:1303.2042).
 It creates a semantic representation of a quantum circuit where the phase of a
 basis state in the output is given by a polynomial over the input and "path"
 variables. This representation causes individual phase gates to be combined or
@@ -36,11 +36,15 @@ Run tpar with
   ./tpar [options]
 
 tpar takes a circuit in the .qc format (a description can be found at
-http://qcirc.iqc.uwaterloo.ca/QCViewer/QCViewerDocumentation.pdf) from
-standard input and outputs the resulting .qc circuit to standard output.
-The circuit can only contain the single qubit gates H, P, P*, T, T*, X,
-Y, Z, and the two qubit tof (CNOT) gate. It also accepts doubly controlled
-Z gates, i.e. Z a b c.
+https://github.com/aparent/QCViewer) from standard input and outputs the
+resulting .qc circuit to standard output. The circuit can only contain the 
+single qubit gates H, P, P*, T, T*, X, Y, Z, and the two qubit tof (CNOT) gate.
+It also accepts doubly controlled Z gates, i.e. Z a b c.
+
+Demos are also available in the subfolder "demos". For example, to compute an
+optimized 6-bit cucarro adder, use the command
+
+  ./tpar < demos/cucarro_adder.qc
 
 OPTIONS
 ------------------------------
