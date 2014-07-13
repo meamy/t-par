@@ -496,6 +496,7 @@ void character::parse_circuit(dotqc & input) {
     } else if ((it->first == "tof" || it->first == "X") && it->second.size() == 1) {
       wires[name_map[*(it->second.begin())]].flip(n + h);
     } else if (it->first == "Y" && it->second.size() == 1) {
+      a = name_map[*(it->second.begin())];
       insert_phase(gate_lookup[it->first], wires[a], phase_expts);
       wires[name_map[*(it->second.begin())]].flip(n + h);
     } else if (it->first == "T" || it->first == "T*" || 
