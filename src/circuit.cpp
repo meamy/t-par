@@ -389,50 +389,6 @@ void dotqc::remove_ids() {
 //-------------------------------------- End of DOTQC stuff
 
 void character::output(ostream& out) {
-  int i, j;
-  bool flag;
-  vector<exponent>::iterator it;
-
-  out << "U|";
-  for (i = 0; i < (n + m); i++) {
-    if (i != 0)  out << " ";
-    if (zero[i]) out << "()";
-    else out << names[i];
-  }
-
-  out << "> --> w^(";
-
-  // Print the phase exponents
-  for (it = phase_expts.begin(); it != phase_expts.end(); it++) {
-    if (it != phase_expts.begin()) out << "+";
-    out << (int)(it->first) << "*";
-    if (it->second.test(n + h)) out << "~";
-    for (i = 0; i < (n + h); i++) {
-      if (it->second.test(i)) out << names[val_map[i]];
-    }
-  }
-  out << ")|";
-
-  // Print the output functions
-  for (i = 0; i < (n + m); i++) {
-    flag = false;
-    out << "(";
-    if (outputs[i].test(n + h)) out << "~";
-    for (j = 0; j < (n + h); j++) {
-      if (outputs[i].test(j)) {
-        if (flag) out << " ";
-        out << names[val_map[j]];
-        flag = true;
-      }
-    }
-    out << ")";
-  }
-  out << ">\n";
-
-  // Print the Hadamards:
-  for (list<Hadamard>::iterator ti = hadamards.begin(); ti != hadamards.end(); ti++) {
-    out << "H:" << names[ti->qubit] << "-->" << ti->prep << "\n";
-  }
 }
 
 // The code is all fucked anyway, might as well just hack this in
@@ -471,7 +427,7 @@ void insert_phase (pair<string, int> ph, xor_func f,
   }
 }
 
-pair<gate, pair<string, int> > parse_gate(const string & s) {
+pair<string, pair<string, int> > parse_gate(const string & s) {
   string gate;
   string base = "";
   int exp2 = 0;
@@ -485,13 +441,13 @@ pair<gate, pair<string, int> > parse_gate(const string & s) {
     gate = s;
   }
 
-  return make_pair(base, exp2);
+  return make_pair(gate, make_pair(base, exp2));
 }
 
-vector<int> parse_args(const list<string> & args, const map<string, int> names) {
+vector<int> parse_args(list<string> & args, map<string, int> names) {
   vector<int> ret;
 
-  for (list<string>::const_iterator it = args.begin(); it != args.end(); it++) {
+  for (list<string>::iterator it = args.begin(); it != args.end(); it++) {
     ret.push_back(names[*it]);
   }
 
@@ -538,43 +494,33 @@ void character::parse_circuit(dotqc & input) {
     gate = parse_gate(it->first);
     qbits = parse_args(it->second, name_map);
 
-    if (gate == "tof" && qbits.size() == 1) gate = "X";
-    else if (gate == "Z" && qbits.size() == 3) gate = "Z3";
+    if (gate.first == "tof" && qbits.size() == 1) gate.first = "X";
+    else if (gate.first == "Z" && qbits.size() == 3) gate.first = "Z3";
 
     flg = false;
-    switch (gate->first) {
     // Tedious cases for phase gates.............
-    case "Rz":
-      insert_phase(gate->second, wires[qbits[0]], phase_expts);
-      break;
-    case "T":
+    if (gate.first == "Rz") {
+      insert_phase(gate.second, wires[qbits[0]], phase_expts);
+    } else if (gate.first == "T") {
       insert_phase(make_pair("pi", 2), wires[qbits[0]], phase_expts);
-      break;
-    case "T*":
+    } else if (gate.first == "T*") {
       insert_phase(make_pair("-pi", 2), wires[qbits[0]], phase_expts);
-      break;
-    case "P":
+    } else if (gate.first == "P") {
       insert_phase(make_pair("pi", 1), wires[qbits[0]], phase_expts);
-      break;
-    case "P*":
+    } else if (gate.first == "P*") {
       insert_phase(make_pair("-pi", 1), wires[qbits[0]], phase_expts);
-      break;
-    case "Z":
+    } else if (gate.first == "Z") {
       insert_phase(make_pair("pi", 0), wires[qbits[0]], phase_expts);
-      break;
     // Wow an X gate
-    case "X":
+    } else if (gate.first == "X") {
       wires[qbits[0]].flip(n + h);
-      break;
-    case "Y":
+    } else if (gate.first == "Y") {
       wires[qbits[0]].flip(n + h);
       insert_phase(make_pair("pi", 0), wires[qbits[0]], phase_expts);
-      break;
     // cnot name tof for some reason
-    case "tof":
+    } else if (gate.first == "tof") {
       wires[qbits[1]] ^= wires[qbits[0]];
-      break;
-    case "Z3":
+    } else if (gate.first == "Z3") {
       insert_phase(make_pair("pi", 2), wires[qbits[0]], phase_expts);
       insert_phase(make_pair("pi", 2), wires[qbits[1]], phase_expts);
       insert_phase(make_pair("pi", 2), wires[qbits[2]], phase_expts);
@@ -583,7 +529,7 @@ void character::parse_circuit(dotqc & input) {
       insert_phase(make_pair("-pi", 2), wires[qbits[1]] ^ wires[qbits[2]], phase_expts);
       insert_phase(make_pair("pi", 2), wires[qbits[0]] ^ wires[qbits[1]] ^ wires[qbits[2]], phase_expts);
     // the interesting case
-    case "H":
+    } else if (gate.first == "H") {
       Hadamard new_h;
       new_h.qubit = qbits[0];
       new_h.prep  = val_max++;
@@ -617,8 +563,7 @@ void character::parse_circuit(dotqc & input) {
       val_map[new_h.prep] = name_max;
       names[name_max] = names[new_h.qubit];
       names[name_max++].append(to_string(new_h.prep));
-      break;
-    case default:
+    } else {
       cout << "ERROR: not a valid circuit\n";
       delete[] outputs;
     }
