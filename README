@@ -20,7 +20,7 @@ acknowledges the tool and/or the paper on which it is based in their work
 BUILD
 ------------------------------
 
-To build tpar, run make in the top level folder.
+To build T-par, run make in the top level folder.
 
 tpar requires the following libraries:
 
@@ -32,8 +32,8 @@ the code will likely require some (minor) modifications.
 
 USAGE
 ------------------------------
-Run tpar with
-  ./tpar [options]
+Run T-par with
+  ./t-par [options]
 
 tpar takes a circuit in the .qc format (a description can be found at
 https://github.com/aparent/QCViewer) from standard input and outputs the
@@ -44,7 +44,7 @@ It also accepts doubly controlled Z gates, i.e. Z a b c.
 Demos are also available in the subfolder "demos". For example, to compute an
 optimized 6-bit cucarro adder, use the command
 
-  ./tpar < demos/cucarro_adder.qc
+  ./t-par < demos/cucarro_adder.qc
 
 OPTIONS
 ------------------------------
@@ -69,8 +69,7 @@ Currently, the available options are
 
   -no-post-process - Turns off post processing of the synthesized circuit to
                      remove swap gates and trivial identities. Turning this off
-                     makes significant difference in runtime on very large 
-                     circuits
+                     may speed up synthesis for very large circuits
 
   -log - Display a log of the algorithm's process
 

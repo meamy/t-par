@@ -1,5 +1,5 @@
 #!/bin/bash
-if [ ! -f ../../tpar ]; then
+if [ ! -f ../../t-par ]; then
         ../../make
 fi
 if [ ! -d opt ]; then
@@ -8,6 +8,6 @@ fi
 for f in `find ./ -type f | sed 's/^\.\.\///'`
 do
 	if [ "$f" != "GF2^128" ] && [ "$f" != "GF2^256" ] ; then
-	  ../../tpar < $f > opt/$f.opt
+	  ../../t-par < $f > opt/$f.opt
 	fi
 done
