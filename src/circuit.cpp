@@ -435,18 +435,67 @@ void character::output(ostream& out) {
   }
 }
 
-void insert_phase (unsigned char c, xor_func f, vector<exponent> & phases) {
+// The code is all fucked anyway, might as well just hack this in
+void insert_phase (pair<string, int> ph, xor_func f, 
+		   map<string, pair<int, vector<exponent> > > & phases) {
+
   vector<exponent>::iterator it;
+  phases[ph.first].first = max(ph.second, phases[ph.first].first);
+  int diff = ph.second - phases[ph.first].first;
+  char val;
+  int cor;
+  if (diff >= 0) {
+    phases[ph.first].first = ph.second;
+    val = 1;
+    cor = diff;
+  } else {
+    val = 1 << abs(diff);
+    cor = 0;
+  }
+
   bool flg = false;
-  for (it = phases.begin(); it != phases.end() && !flg; it++) {
+  for (it = phases[ph.first].second.begin(); it != phases[ph.first].second.end(); it++) {
+    // renormalize
+    it->first = it->first << cor;
+    // Add the phase
     if (it->second == f) {
-      it->first = (it->first + c) % 8;
-      flg = true;
+      if (ph.first[0] == '-') {
+	it->first = it->first - val;
+      } else {
+	it->first = it->first + val;
+      }
     }
   }
   if (!flg) {
-    phases.push_back(make_pair(c, xor_func(f)));
+    phases[ph.first].second.push_back(make_pair(val, xor_func(f)));
   }
+}
+
+pair<gate, pair<string, int> > parse_gate(const string & s) {
+  string gate;
+  string base = "";
+  int exp2 = 0;
+
+  size_t br = s.find('(');
+  if (br != string::npos) {
+    gate = s.substr(0, br - 1);
+    base = s.substr(br+1, s.find('/') - 1);
+    istringstream(s.substr(s.find('^') + 1, s.find(')') - 1)) >> exp2;
+  } else {
+    gate = s;
+  }
+
+  return make_pair(base, exp2);
+}
+
+vector<int> parse_args(const list<string> & args, const map<string, int> names) {
+  vector<int> ret;
+
+  for (list<string>::const_iterator it = args.begin(); it != args.end(); it++) {
+    ret.push_back(names[*it]);
+  }
+
+  return ret;
 }
 
 // Parse a {CNOT, T} circuit
@@ -458,13 +507,9 @@ void character::parse_circuit(dotqc & input) {
   h = count_h(input);
 
   hadamards.clear();
-  map<string, int> name_map, gate_lookup;
-  gate_lookup["T"] = 1;
-  gate_lookup["T*"] = 7;
-  gate_lookup["P"] = 2;
-  gate_lookup["P*"] = 6;
-  gate_lookup["Z"] = 4;
-  gate_lookup["Y"] = 4;
+  map<string, int> name_map;
+  pair<string, pair<string, int> > gate;
+  vector<int> qbits;
 
   // Initialize names and wires
   names = new string [n + m + h];
@@ -490,42 +535,57 @@ void character::parse_circuit(dotqc & input) {
 
   gatelist::iterator it;
   for (it = input.circ.begin(); it != input.circ.end(); it++) {
+    gate = parse_gate(it->first);
+    qbits = parse_args(it->second, name_map);
+
+    if (gate == "tof" && qbits.size() == 1) gate = "X";
+    else if (gate == "Z" && qbits.size() == 3) gate = "Z3";
+
     flg = false;
-    if (it->first == "tof" && it->second.size() == 2) {
-      wires[name_map[*(++(it->second.begin()))]] ^= wires[name_map[*(it->second.begin())]];
-    } else if ((it->first == "tof" || it->first == "X") && it->second.size() == 1) {
-      wires[name_map[*(it->second.begin())]].flip(n + h);
-    } else if (it->first == "Y" && it->second.size() == 1) {
-      a = name_map[*(it->second.begin())];
-      insert_phase(gate_lookup[it->first], wires[a], phase_expts);
-      wires[name_map[*(it->second.begin())]].flip(n + h);
-    } else if (it->first == "T" || it->first == "T*" || 
-        it->first == "P" || it->first == "P*" || 
-        (it->first == "Z" && it->second.size() == 1)) {
-      a = name_map[*(it->second.begin())];
-      insert_phase(gate_lookup[it->first], wires[a], phase_expts);
-    } else if (it->first == "Z" && it->second.size() == 3) {
-      list<string>::iterator tmp_it = it->second.begin();
-      a = name_map[*(tmp_it++)];
-      b = name_map[*(tmp_it++)];
-      c = name_map[*tmp_it];
-      insert_phase(1, wires[a], phase_expts);
-      insert_phase(1, wires[b], phase_expts);
-      insert_phase(1, wires[c], phase_expts);
-      insert_phase(7, wires[a] ^ wires[b], phase_expts);
-      insert_phase(7, wires[a] ^ wires[c], phase_expts);
-      insert_phase(7, wires[b] ^ wires[c], phase_expts);
-      insert_phase(1, wires[a] ^ wires[b] ^ wires[c], phase_expts);
-    } else if (it->first == "H") {
-      // This WILL confuse you later on you idiot
-      //   You zero the "destroyed" qubit, compute the rank, then replace the
-      //   value with each of the phase exponents to see if the rank increases
-      //   i.e. the system is inconsistent. This is so you don't have to make
-      //   a new matrix -- i.e. instead of preparing the new value and computing
-      //   rank, then adding each phase exponent and checking the rank you do it
-      //   in place
+    switch (gate->first) {
+    // Tedious cases for phase gates.............
+    case "Rz":
+      insert_phase(gate->second, wires[qbits[0]], phase_expts);
+      break;
+    case "T":
+      insert_phase(make_pair("pi", 2), wires[qbits[0]], phase_expts);
+      break;
+    case "T*":
+      insert_phase(make_pair("-pi", 2), wires[qbits[0]], phase_expts);
+      break;
+    case "P":
+      insert_phase(make_pair("pi", 1), wires[qbits[0]], phase_expts);
+      break;
+    case "P*":
+      insert_phase(make_pair("-pi", 1), wires[qbits[0]], phase_expts);
+      break;
+    case "Z":
+      insert_phase(make_pair("pi", 0), wires[qbits[0]], phase_expts);
+      break;
+    // Wow an X gate
+    case "X":
+      wires[qbits[0]].flip(n + h);
+      break;
+    case "Y":
+      wires[qbits[0]].flip(n + h);
+      insert_phase(make_pair("pi", 0), wires[qbits[0]], phase_expts);
+      break;
+    // cnot name tof for some reason
+    case "tof":
+      wires[qbits[1]] ^= wires[qbits[0]];
+      break;
+    case "Z3":
+      insert_phase(make_pair("pi", 2), wires[qbits[0]], phase_expts);
+      insert_phase(make_pair("pi", 2), wires[qbits[1]], phase_expts);
+      insert_phase(make_pair("pi", 2), wires[qbits[2]], phase_expts);
+      insert_phase(make_pair("-pi", 2), wires[qbits[0]] ^ wires[qbits[1]], phase_expts);
+      insert_phase(make_pair("-pi", 2), wires[qbits[0]] ^ wires[qbits[2]], phase_expts);
+      insert_phase(make_pair("-pi", 2), wires[qbits[1]] ^ wires[qbits[2]], phase_expts);
+      insert_phase(make_pair("pi", 2), wires[qbits[0]] ^ wires[qbits[1]] ^ wires[qbits[2]], phase_expts);
+    // the interesting case
+    case "H":
       Hadamard new_h;
-      new_h.qubit = name_map[*(it->second.begin())];
+      new_h.qubit = qbits[0];
       new_h.prep  = val_max++;
       new_h.wires = new xor_func[n + m];
       for (i = 0; i < n + m; i++) {
@@ -535,11 +595,15 @@ void character::parse_circuit(dotqc & input) {
       // Check previous exponents to see if they're inconsistent
       wires[new_h.qubit].reset();
       int rank = compute_rank(n + m, n + h, wires);
-      for (i = 0; i < phase_expts.size(); i++) {
-        if (phase_expts[i].first != 0) {
-          wires[new_h.qubit] = phase_expts[i].second;
-          if (compute_rank(n + m, n + h, wires) > rank) new_h.in.insert(i);
-        }
+      for (map<string, pair<int, vector<exponent> > >::iterator it = phase_expts.begin();
+	   it != phase_expts.end(); it++) {
+	vector<exponent> * tmp = &((it->second).second);
+	for (i = 0; i < tmp->size(); i++) {
+	  if ((*tmp)[i].first != 0) {
+	    wires[new_h.qubit] = (*tmp)[i].second;
+	    if (compute_rank(n + m, n + h, wires) > rank) new_h.in[it->first].insert(i);
+	  }
+	}
       }
 
       // Done creating the new hadamard
@@ -553,60 +617,14 @@ void character::parse_circuit(dotqc & input) {
       val_map[new_h.prep] = name_max;
       names[name_max] = names[new_h.qubit];
       names[name_max++].append(to_string(new_h.prep));
-
-    } else {
-      cout << "ERROR: not a {H, CNOT, X, Y, Z, P, T} circuit\n";
-      phase_expts.clear();
+      break;
+    case default:
+      cout << "ERROR: not a valid circuit\n";
       delete[] outputs;
     }
   }
 }
 
-void character::add_ancillae(int num) {
-  int num_qubits = n + m + num;
-  stringstream ss;
-
-  int new_m = m + num;
-  int i;
-  string * new_names = new string[num_qubits];
-  bool * new_zero    = new bool[num_qubits];
-  xor_func * new_out = new xor_func[num_qubits];
-  xor_func * new_wires;
-
-  for (list<Hadamard>::iterator it = hadamards.begin(); it != hadamards.end(); it++) {
-    new_wires = new xor_func[num_qubits];
-    for (i = 0; i < num_qubits; i++) {
-      if (i < (n + m)) new_wires[i] = it->wires[i];
-      else new_wires[i] = xor_func(n + h + 1, 0);
-    }
-    delete[] it->wires;
-    it->wires = new_wires;
-  }
-
-  for (i = 0; i < num_qubits; i++) {
-    if (i < (n + m)) {
-      new_names[i] = names[i];
-      new_zero[i]  = zero[i];
-      new_out[i]   = outputs[i];
-    } else {
-      ss.str("");
-      ss << "__anc" << i - (n + m);
-      new_names[i] = ss.str();
-      new_zero[i] = true;
-      new_out[i] = xor_func(n + h + 1, 0);
-    }
-  }
-
-  delete[] names;
-  delete[] zero;
-  delete[] outputs;
-
-  names = new_names;
-  zero = new_zero;
-  outputs = new_out;
-  m = new_m;
-}
-  
 //---------------------------- Synthesis
 
 dotqc character::synthesize() {
@@ -715,149 +733,6 @@ dotqc character::synthesize() {
       construct_circuit(phase_expts, floats[1], wires, outputs, n + m, n + h, names));
   if (disp_log) cerr << "  " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
 
-  return ret;
-}
-
-dotqc character::synthesize_unbounded() {
-  partitioning floats[2], frozen[2]; 
-  dotqc ret;
-  xor_func mask(n + h + 1, 0);      // Tells us what values we have prepared
-  xor_func * wires =  new xor_func[n + m]; // Current state of the wires
-  list<int> remaining[2];          // Which terms we still have to partition
-  int dim = n, tmp1, tmp2, tdepth = 0, h_count = 1, applied = 0, j;
-  ind_oracle oracle(n + m, dim, n + h);
-  list<pair<string, list<string> > > circ;
-  list<Hadamard>::iterator it;
-
-  // initialize some stuff
-  mask.set(n + h);
-  for (int i = 0, j = 0; i < n + m; i++) {
-    wires[i] = xor_func(n + h + 1, 0);
-    if (!zero[i]) {
-      wires[i].set(j);
-      mask.set(j++);
-    }
-  }
-
-  // initialize the remaining list
-  for (int i = 0; i < phase_expts.size(); i++) {
-    if (phase_expts[i].first % 2 == 1) remaining[0].push_back(i);
-    else if (phase_expts[i].first != 0) remaining[1].push_back(i);
-  }
-
-  // create an initial partition
-  // cerr << "Adding new functions to the partition... " << flush;
-  for (j = 0; j < 2; j++) {
-    for (list<int>::iterator it = remaining[j].begin(); it != remaining[j].end();) {
-      xor_func tmp = (~mask) & (phase_expts[*it].second);
-      if (tmp.none()) {
-        if (floats[j].size() == 0) floats[j].push_back(set<int>());
-        (floats[j].begin())->insert(*it);
-        it = remaining[j].erase(it);
-      } else it++;
-    }
-  }
-  if (disp_log) cerr << "  " << phase_expts.size() - (remaining[0].size() + remaining[1].size())  
-    << "/" << phase_expts.size() << " phase rotations partitioned\n" << flush;
-
-  for (it = hadamards.begin(); it != hadamards.end(); it++, h_count++) {
-    // 1. freeze partitions that are not disjoint from the hadamard input
-    // 2. construct CNOT+T circuit
-    // 3. apply the hadamard gate
-    // 4. add new functions to the partition
-    if (disp_log) cerr << "  Hadamard " << h_count << "/" << hadamards.size() << "\n" << flush;
-
-    tmp1 = compute_rank(n + m, n + h, wires);
-    // determine frozen partitions
-    for (j = 0; j < 2; j++) {
-      frozen[j] = freeze_partitions(floats[j], it->in);
-      applied += num_elts(frozen[j]);
-      // determine if we need to add ancillae
-      if (frozen[j].size() != 0) {
-        tmp2 = compute_rank(n + h, phase_expts, *(frozen[j].begin()));
-        int etc = ((tmp1 - tmp2 < 0)?tmp1:tmp1 - tmp2) + num_elts(frozen[j]) - n - m;
-        if (etc > 0) {
-          xor_func * tmp = new xor_func[n + m + etc];
-          for (int i = 0; i < n + m + etc; i++) {
-            if (i < n + m) tmp[i] = wires[i];
-            else tmp[i] = xor_func(n + h + 1, 0);
-          }
-          delete[] wires;
-          wires = tmp;
-          add_ancillae(etc);
-        }
-      }
-    }
-
-    if (disp_log) cerr << "    Synthesizing T-layer\n" << flush;
-    // Construct {CNOT, T} subcircuit for the frozen partitions
-    ret.circ.splice(ret.circ.end(), 
-        construct_circuit(phase_expts, frozen[0], wires, wires, n + m, n + h, names));
-    ret.circ.splice(ret.circ.end(), 
-        construct_circuit(phase_expts, frozen[1], wires, it->wires, n + m, n + h, names));
-    for (int i = 0; i < n + m; i++) {
-      wires[i] = it->wires[i];
-    }
-    if (disp_log) cerr << "    " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
-
-    // Apply Hadamard gate
-    ret.circ.push_back(make_pair("H", list<string>(1, names[it->qubit])));
-    wires[it->qubit].reset();
-    wires[it->qubit].set(it->prep);
-    mask.set(it->prep);
-
-    // Add new functions to the partition
-    for (j = 0; j < 2; j++) {
-      for (list<int>::iterator it = remaining[j].begin(); it != remaining[j].end();) {
-        xor_func tmp = (~mask) & (phase_expts[*it].second);
-        if (tmp.none()) {
-          if (floats[j].size() == 0) floats[j].push_back(set<int>());
-          (floats[j].begin())->insert(*it);
-          it = remaining[j].erase(it);
-        } else it++;
-      }
-    }
-    if (disp_log) cerr << "    " << phase_expts.size() - (remaining[0].size() + remaining[1].size())
-      << "/" << phase_expts.size() << " phase rotations partitioned\n" << flush;
-  }
-
-  applied += num_elts(floats[0]) + num_elts(floats[1]);
-  // Construct the final {CNOT, T} subcircuit
-
-  // determine if we need to add ancillae
-  tmp1 = compute_rank(n + m, n + h, wires);
-  for (j = 0; j < 2; j++) {
-    if (floats[j].size() != 0) {
-      for (j = 0; j < 2; j++) {
-        tmp2 = compute_rank(n + h, phase_expts, *(floats[j].begin()));
-        int etc = tmp1 - tmp2 + num_elts(floats[j]) - n - m;
-        if (etc > 0) {
-          if (disp_log) cerr << "    " << "Adding " << etc << " ancilla(e)\n" << flush;
-          xor_func * tmp = new xor_func[n + m + etc];
-          for (int i = 0; i < n + m + etc; i++) {
-            if (i < n + m) tmp[i] = wires[i];
-            else tmp[i] = xor_func(n + h + 1, 0);
-          }
-          delete[] wires;
-          wires = tmp;
-          add_ancillae(etc);
-        }
-      }
-    }
-  }
-
-  ret.circ.splice(ret.circ.end(), 
-      construct_circuit(phase_expts, floats[0], wires, wires, n + m, n + h, names));
-  ret.circ.splice(ret.circ.end(), 
-      construct_circuit(phase_expts, floats[1], wires, outputs, n + m, n + h, names));
-  if (disp_log) cerr << "  " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
-
-  ret.n = n;
-  ret.m = m;
-  for (int i = 0, j = 0; i < n + m; i++) {
-    ret.names.push_back(names[i]);
-    ret.zero[names[i]] = zero[i];
-  }
   return ret;
 }
 
