@@ -61,12 +61,9 @@ int main(int argc, char *argv[]) {
     character c;
     if (disp_log) cerr << "Parsing circuit...\n" << flush;
     c.parse_circuit(circuit);
-    if (anc == -1) c.add_ancillae(c.n + c.m);
-    else if (anc > 0) c.add_ancillae(anc);
     if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
     clock_gettime(CLOCK_MONOTONIC, &start);
-    if (anc == -2) synth = c.synthesize_unbounded();
-    else           synth = c.synthesize();
+    synth = c.synthesize();
     clock_gettime(CLOCK_MONOTONIC, &end);
   } else {
     metacircuit meta;

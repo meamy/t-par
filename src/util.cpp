@@ -400,7 +400,9 @@ gatelist construct_circuit(const vector<exponent> & phase,
     const xor_func * out,
     int num,
     int dim,
-    const string * names) {
+    const string * names,
+    string base,
+    int exp2) {
   gatelist ret, tmp, rev;
   xor_func * bits = new xor_func[num];
   xor_func * pre = new xor_func[num];
@@ -447,18 +449,13 @@ gatelist construct_circuit(const vector<exponent> & phase,
       else if (synth_method == PMH) ret.splice(ret.end(), CNOT_synth(num, pre, names));
     }
 
-    // apply the T gates
+    // apply the phase gates
     list<string> tmp_lst;
     for (ti = it->begin(), i = 0; ti != it->end(); ti++, i++) {
       tmp_lst.clear();
       tmp_lst.push_back(names[i]);
-      if (phase[*ti].first <= 4) {
-        if (phase[*ti].first / 4 == 1) ret.push_back(make_pair("Z", tmp_lst));
-        if (phase[*ti].first / 2 == 1) ret.push_back(make_pair("P", tmp_lst));
-        if (phase[*ti].first % 2 == 1) ret.push_back(make_pair("T", tmp_lst));
-      } else {
-        if (phase[*ti].first == 5 || phase[*ti].first == 6) ret.push_back(make_pair("P*", tmp_lst));
-        if (phase[*ti].first % 2 == 1) ret.push_back(make_pair("T*", tmp_lst));
+      for(int j = 0; j < phase[*ti].first; j++) {
+	ret.push_back(make_pair("Rz(" + base + "/2^" + to_string(exp2), tmp_lst));
       }
     }
 

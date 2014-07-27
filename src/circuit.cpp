@@ -572,13 +572,15 @@ void character::parse_circuit(dotqc & input) {
 
 //---------------------------- Synthesis
 
+// So what we're going to do is have parallel partitions for
+//  each syntactic class of rotations
 dotqc character::synthesize() {
-  partitioning floats[2], frozen[2]; 
+  map<string, partitioning> floats, frozen;
   dotqc ret;
   xor_func mask(n + h + 1, 0);      // Tells us what values we have prepared
   xor_func wires[n + m];        // Current state of the wires
-  list<int> remaining[2];          // Which terms we still have to partition
-  int dim = n, tmp, tdepth = 0, h_count = 1, applied = 0, j;
+  map<string, list<int> > remaining;          // Which terms we still have to partition
+  int dim = n, tmp, j;
   ind_oracle oracle(n + m, dim, n + h);
   list<pair<string, list<string> > > circ;
   list<Hadamard>::iterator it;
@@ -597,48 +599,42 @@ dotqc character::synthesize() {
     }
   }
 
-  // initialize the remaining list
-  for (int i = 0; i < phase_expts.size(); i++) {
-    if (phase_expts[i].first % 2 == 1) remaining[0].push_back(i);
-    else if (phase_expts[i].first != 0) remaining[1].push_back(i);
-  }
-
-  // create an initial partition
-  // cerr << "Adding new functions to the partition... " << flush;
-  for (j = 0; j < 2; j++) {
-    for (list<int>::iterator it = remaining[j].begin(); it != remaining[j].end();) {
-      xor_func tmp = (~mask) & (phase_expts[*it].second);
+  // initialize the remaining lists and partitions
+  for (map<string, pair<int, vector<exponent> > >::iterator it = phase_expts.begin();
+       it != phase_expts.end(); it++) {
+    for (int i = 0; i < it->second.second.size(); i++) {
+      xor_func tmp = (~mask) & (it->second.second[i].second);
       if (tmp.none()) {
-        add_to_partition(floats[j], *it, phase_expts, oracle);
-        it = remaining[j].erase(it);
-      } else it++;
+        add_to_partition(floats[it->first], i, it->second.second, oracle);
+      } else {
+        remaining[it->first].push_back(i);
+      }
     }
   }
-  if (disp_log) cerr << "  " << phase_expts.size() - (remaining[0].size() + remaining[1].size())  
-    << "/" << phase_expts.size() << " phase rotations partitioned\n" << flush;
 
-  for (it = hadamards.begin(); it != hadamards.end(); it++, h_count++) {
+  for (it = hadamards.begin(); it != hadamards.end(); it++) {
     // 1. freeze partitions that are not disjoint from the hadamard input
     // 2. construct CNOT+T circuit
     // 3. apply the hadamard gate
     // 4. add new functions to the partition
-    if (disp_log) cerr << "  Hadamard " << h_count << "/" << hadamards.size() << "\n" << flush;
 
-    // determine frozen partitions
-    for (j = 0; j < 2; j++) {
-      frozen[j] = freeze_partitions(floats[j], it->in);
-      applied += num_elts(frozen[j]);
+    for (map<string, pair<int, vector<exponent> > >::iterator ti = phase_expts.begin();
+	 ti != phase_expts.end(); ti++) {
+      // determine frozen partitions
+      frozen[ti->first] = freeze_partitions(floats[ti->first], it->in[ti->first]);
+
+      // Construct {CNOT, T} subcircuit for the frozen partitions
+      ret.circ.splice(ret.circ.end(), 
+		      construct_circuit(phase_expts[ti->first].second,
+					frozen[ti->first], wires, wires, n + m, n + h, names,
+					ti->first, phase_expts[ti->first].first));
     }
-
-    // Construct {CNOT, T} subcircuit for the frozen partitions
     ret.circ.splice(ret.circ.end(), 
-        construct_circuit(phase_expts, frozen[0], wires, wires, n + m, n + h, names));
-    ret.circ.splice(ret.circ.end(), 
-        construct_circuit(phase_expts, frozen[1], wires, it->wires, n + m, n + h, names));
+		    construct_circuit(vector<exponent>(), partitioning(), wires, it->wires, 
+				      n + m, n + h, names, "", 0));
     for (int i = 0; i < n + m; i++) {
       wires[i] = it->wires[i];
     }
-    if (disp_log) cerr << "    " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
 
     // Apply Hadamard gate
     ret.circ.push_back(make_pair("H", list<string>(1, names[it->qubit])));
@@ -649,34 +645,38 @@ dotqc character::synthesize() {
     // Check for increases in dimension
     tmp = compute_rank(n + m, n + h, wires);
     if (tmp > dim) {
-      if (disp_log) cerr << "    Dimension increased to " << tmp << ", fixing partitions...\n" << flush;
       dim = tmp;
       oracle.set_dim(dim);
-      repartition(floats[0], phase_expts, oracle);
-      repartition(floats[1], phase_expts, oracle);
+      for (map<string, pair<int, vector<exponent> > >::iterator ti = phase_expts.begin();
+	   ti != phase_expts.end(); ti++) {
+	repartition(floats[ti->first], phase_expts[ti->first].second, oracle);
+      }
     }
 
     // Add new functions to the partition
-    for (j = 0; j < 2; j++) {
-      for (list<int>::iterator it = remaining[j].begin(); it != remaining[j].end();) {
-        xor_func tmp = (~mask) & (phase_expts[*it].second);
+    for (map<string, pair<int, vector<exponent> > >::iterator it = phase_expts.begin();
+	 it != phase_expts.end(); it++) {
+      for (list<int>::iterator ti = remaining[it->first].begin(); ti != remaining[it->first].end();) {
+        xor_func tmp = (~mask) & (it->second.second[*ti].second);
         if (tmp.none()) {
-          add_to_partition(floats[j], *it, phase_expts, oracle);
-          it = remaining[j].erase(it);
-        } else it++;
+          add_to_partition(floats[it->first], *ti, it->second.second, oracle);
+          ti = remaining[it->first].erase(ti);
+        } else ti++;
       }
     }
-    if (disp_log) cerr << "    " << phase_expts.size() - (remaining[0].size() + remaining[1].size())
-      << "/" << phase_expts.size() << " phase rotations partitioned\n" << flush;
   }
 
-  applied += num_elts(floats[0]) + num_elts(floats[1]);
   // Construct the final {CNOT, T} subcircuit
+  for (map<string, pair<int, vector<exponent> > >::iterator it = phase_expts.begin();
+       it != phase_expts.end(); it++) {
+    ret.circ.splice(ret.circ.end(), 
+		    construct_circuit(phase_expts[it->first].second,
+				      floats[it->first], wires, wires, n + m, n + h, names,
+		   		      it->first, phase_expts[it->first].first));
+  }
   ret.circ.splice(ret.circ.end(), 
-      construct_circuit(phase_expts, floats[0], wires, wires, n + m, n + h, names));
-  ret.circ.splice(ret.circ.end(), 
-      construct_circuit(phase_expts, floats[1], wires, outputs, n + m, n + h, names));
-  if (disp_log) cerr << "  " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
+		  construct_circuit(vector<exponent>(), partitioning(), wires, outputs, 
+				    n + m, n + h, names, "", 0));
 
   return ret;
 }

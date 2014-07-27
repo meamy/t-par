@@ -57,4 +57,6 @@ gatelist construct_circuit(const vector<exponent> & phase,
     const xor_func * out,
     int num,
     int dim,
-    const string * names);
+    const string * names,
+    string base,
+    int exp2);
