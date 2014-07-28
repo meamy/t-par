@@ -8,7 +8,9 @@ axis of the bloch sphere, the leading minus sign is optional,
 ID is some string standing in for an arbitrary angle with "pi"
 representing the (mathematical) pi, and k is an arbitrary integer.
 So, for example, Rz(pi/2^2) gives the standard T gate, and
-Rz(-pi/2^2) gives the T* gate.
+Rz(-pi/2^2) gives the T* gate. On the other hand, you can use
+Rz(\theta/2^0) and Rz(\phi/2^0) to represent two distinct
+rotation angles in a circuit.
 
 T-par will attempt to merge and parallelize those phase gates
 in the same "syntactic class", in that rotations along angles
