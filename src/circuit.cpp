@@ -393,7 +393,10 @@ void character::output(ostream& out) {
 
 // The code is all fucked anyway, might as well just hack this in
 void insert_phase (pair<string, int> ph, xor_func f, 
-		   map<string, pair<int, vector<exponent> > > & phases) {
+    map<string, pair<int, vector<exponent> > > & phases) {
+  // Strip the "-"
+  bool minus = (ph.first[0] == '-');
+  if (minus) ph.first = ph.first.substr(1);
 
   vector<exponent>::iterator it;
   phases[ph.first].first = max(ph.second, phases[ph.first].first);
@@ -408,6 +411,7 @@ void insert_phase (pair<string, int> ph, xor_func f,
     val = 1 << abs(diff);
     cor = 0;
   }
+  if (minus) val = -val;
 
   bool flg = false;
   for (it = phases[ph.first].second.begin(); it != phases[ph.first].second.end(); it++) {
@@ -415,11 +419,8 @@ void insert_phase (pair<string, int> ph, xor_func f,
     it->first = it->first << cor;
     // Add the phase
     if (it->second == f) {
-      if (ph.first[0] == '-') {
-	it->first = it->first - val;
-      } else {
-	it->first = it->first + val;
-      }
+      it->first = it->first + val;
+      flg = true;
     }
   }
   if (!flg) {
@@ -434,8 +435,8 @@ pair<string, pair<string, int> > parse_gate(const string & s) {
 
   size_t br = s.find('(');
   if (br != string::npos) {
-    gate = s.substr(0, br - 1);
-    base = s.substr(br+1, s.find('/') - 1);
+    gate = s.substr(0, br);
+    base = s.substr(br+1, s.find('/') - br - 1);
     istringstream(s.substr(s.find('^') + 1, s.find(')') - 1)) >> exp2;
   } else {
     gate = s;
@@ -599,15 +600,18 @@ dotqc character::synthesize() {
     }
   }
 
+
   // initialize the remaining lists and partitions
   for (map<string, pair<int, vector<exponent> > >::iterator it = phase_expts.begin();
        it != phase_expts.end(); it++) {
     for (int i = 0; i < it->second.second.size(); i++) {
-      xor_func tmp = (~mask) & (it->second.second[i].second);
-      if (tmp.none()) {
-        add_to_partition(floats[it->first], i, it->second.second, oracle);
-      } else {
-        remaining[it->first].push_back(i);
+      if (it->second.second[i].first != 0) {
+        xor_func tmp = (~mask) & (it->second.second[i].second);
+        if (tmp.none()) {
+          add_to_partition(floats[it->first], i, it->second.second, oracle);
+        } else {
+          remaining[it->first].push_back(i);
+        }
       }
     }
   }

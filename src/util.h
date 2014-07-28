@@ -24,7 +24,7 @@ Author: Matthew Amy
 #include "partition.h"
 
 typedef boost::dynamic_bitset<>            xor_func;
-typedef pair<char, xor_func >              exponent;
+typedef pair<int, xor_func >              exponent;
 typedef list<pair<string, list<string> > > gatelist;
 
 enum synth_type { AD_HOC, GAUSS, PMH };

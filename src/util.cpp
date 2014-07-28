@@ -23,7 +23,7 @@ Author: Matthew Amy
 #include <map>
 
 bool disp_log = false;
-synth_type synth_method = PMH;
+synth_type synth_method = GAUSS;
 
 void print_wires(const xor_func * wires, int num, int dim) {
   int i, j;
@@ -454,9 +454,14 @@ gatelist construct_circuit(const vector<exponent> & phase,
     for (ti = it->begin(), i = 0; ti != it->end(); ti++, i++) {
       tmp_lst.clear();
       tmp_lst.push_back(names[i]);
-      for(int j = 0; j < phase[*ti].first; j++) {
-	ret.push_back(make_pair("Rz(" + base + "/2^" + to_string(exp2), tmp_lst));
+      int j, tmp;
+      string minus = phase[*ti].first > 0 ? "" : "-";
+      for(j = exp2, tmp = abs(phase[*ti].first); j > 0; j--, tmp = tmp >> 1) {
+        if (1 & tmp) 
+          ret.push_back(make_pair("Rz(" + minus + base + "/2^" + to_string(j) + ")", tmp_lst));
       }
+      if (tmp == 1) ret.push_back(make_pair("Rz(" + minus + base + ")", tmp_lst));
+      else if (tmp > 1) ret.push_back(make_pair("Rz(" + minus + to_string(tmp) + base + ")", tmp_lst));
     }
 
     // unprepare the bits

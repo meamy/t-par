@@ -1,77 +1,20 @@
-T-par
-=============================
-Written by Matthew Amy
+An extension of T-par to deal with arbitrary rotations.
+Most of the options of T-par don't work yet, but it will optimize
+circuits with arbitrary Z rotations in the general way.
 
-T-par is a quantum circuit optimizer utilizing sum-over-paths representations
-to analyze and re-synthesize Clifford+T circuits.
+The syntax is the same as regular T-par .qc, with the addition
+of the gate Rz([-]ID/2^k). Rz specifies a rotation along the z
+axis of the bloch sphere, the leading minus sign is optional,
+ID is some string standing in for an arbitrary angle with "pi"
+representing the (mathematical) pi, and k is an arbitrary integer.
+So, for example, Rz(pi/2^2) gives the standard T gate, and
+Rz(-pi/2^2) gives the T* gate.
 
-The default algorithm is described in the paper "Polynomial-time T-depth
-Optimization of Clifford+T circuits via Matroid Partitioning" (arXiv:1303.2042).
-It creates a semantic representation of a quantum circuit where the phase of a
-basis state in the output is given by a polynomial over the input and "path"
-variables. This representation causes individual phase gates to be combined or
-cancelled in the polynomial, reducing the total number of phase gates (notably,
-T gates). Matroid partitioning is then used to optimally parallelize the
-remaining phase gates during resynthesis.
+T-par will attempt to merge and parallelize those phase gates
+in the same "syntactic class", in that rotations along angles
+known to be related by powers of 2 can be merged and parallelized.
+In a production version phase gates in different syntactic classes
+would be parallelized together, but this should be sufficient for
+some experiments.
 
-We kindly request that anyone using this code to optimize circuits
-acknowledges the tool and/or the paper on which it is based in their work
-
-BUILD
-------------------------------
-
-To build T-par, run make in the top level folder.
-
-tpar requires the following libraries:
-
--- Boost
-
-Boost should be available through your package manager. Additionally, 
-your compiler needs to support the c++0x/c++11 standard, or otherwise
-the code will likely require some (minor) modifications.
-
-USAGE
-------------------------------
-Run T-par with
-  ./t-par [options]
-
-tpar takes a circuit in the .qc format (a description can be found at
-https://github.com/aparent/QCViewer) from standard input and outputs the
-resulting .qc circuit to standard output. The circuit can only contain the 
-single qubit gates H, P, P*, T, T*, X, Y, Z, and the two qubit tof (CNOT) gate.
-It also accepts doubly controlled Z gates, i.e. Z a b c.
-
-Demos are also available in the subfolder "demos". For example, to compute an
-optimized 6-bit cucarro adder, use the command
-
-  ./t-par < demos/cucarro_adder.qc
-
-OPTIONS
-------------------------------
-Currently, the available options are
-
-  -ancillae [0.., unbounded] - Specify the number of ancillae to add during
-                               resynthesis. A natural number argument adds that
-                               number of ancillae, while "unbounded" allows the
-                               synthesizer to use as many ancillae as needed to
-                               maximally parallelize phase gates
-
-  -no-hadamard - Perform the T-par algorithm only on {CNOT, T} subcircuits. It
-                 may provide better T-parallelization in some circuits
-
-  -synth=[ADHOC,GAUSS,PMH] - Specify the synthesis method for linear reversible
-                             circuits (i.e. {CNOT} circuits). ADHOC is an
-                             informal (but correct) Gaussian elimination type 
-                             algorithm, GAUSS is formal Gaussian elimination,
-                             and PMH is the asymptotically optimal algorithm
-                             described in "Optimal synthesis of linear
-                             reversible circuits"
-
-  -no-post-process - Turns off post processing of the synthesized circuit to
-                     remove swap gates and trivial identities. Turning this off
-                     may speed up synthesis for very large circuits
-
-  -log - Display a log of the algorithm's process
-
-This README is far from complete, so please feel free to email me at 
-matt.e.amy@gmail.com if you have any questions or if you find any bugs.
+For a demo, check out demos/controlled_Rz.qc.

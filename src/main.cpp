@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
   circuit.print_stats();
   cout << flush;
 
-  circuit.remove_ids();
+//  circuit.remove_ids();
   if (full_character) {
     character c;
     if (disp_log) cerr << "Parsing circuit...\n" << flush;
