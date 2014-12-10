@@ -435,18 +435,18 @@ void character::output(ostream& out) {
   }
 }
 
-void insert_phase (unsigned char c, xor_func f, vector<exponent> & phases) {
-  vector<exponent>::iterator it;
-  bool flg = false;
-  for (it = phases.begin(); it != phases.end() && !flg; it++) {
-    if (it->second == f) {
-      it->first = (it->first + c) % 8;
-      flg = true;
+int insert_phase (unsigned char c, xor_func f, vector<exponent> & phases) {
+  int i;
+
+  for (i = 0; i < phases.size(); i++) {
+    if (phases[i].second == f) {
+      phases[i].first = (phases[i].first + c) % 8;
+      return i;
     }
   }
-  if (!flg) {
-    phases.push_back(make_pair(c, xor_func(f)));
-  }
+
+  phases.push_back(make_pair(c, xor_func(f)));
+  return i;
 }
 
 // Parse a {CNOT, T} circuit
@@ -622,9 +622,6 @@ dotqc character::synthesize() {
   list<Hadamard>::iterator it;
   int global_phase = 0;
 
-  // Remove x gates
-  remove_x(n + h, phase_expts);
-
   // initialize some stuff
   ret.n = n;
   ret.m = m;
@@ -737,6 +734,7 @@ dotqc character::synthesize_unbounded() {
   ind_oracle oracle(n + m, dim, n + h);
   list<pair<string, list<string> > > circ;
   list<Hadamard>::iterator it;
+  int global_phase = 0;
 
   // initialize some stuff
   mask.set(n + h);
@@ -750,10 +748,9 @@ dotqc character::synthesize_unbounded() {
 
   // initialize the remaining list
   for (int i = 0; i < phase_expts.size(); i++) {
-    if (phase_expts[i].second != xor_func(n + h + 1, 0)) {
-      if (phase_expts[i].first % 2 == 1) remaining[0].push_back(i);
-      else if (phase_expts[i].first != 0) remaining[1].push_back(i);
-    }
+    if (phase_expts[i].second == xor_func(n + h + 1, 0)) global_phase = phase_expts[i].first;
+    else if (phase_expts[i].first % 2 == 1) remaining[0].push_back(i);
+    else if (phase_expts[i].first != 0) remaining[1].push_back(i);
   }
 
   // create an initial partition
@@ -862,6 +859,9 @@ dotqc character::synthesize_unbounded() {
   ret.circ.splice(ret.circ.end(), 
       construct_circuit(phase_expts, floats[1], wires, outputs, n + m, n + h, names));
   if (disp_log) cerr << "  " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
+
+  // Add the global phase
+  ret.circ.splice(ret.circ.end(), global_phase_synth(n + m, global_phase, names));
 
   ret.n = n;
   ret.m = m;

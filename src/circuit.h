@@ -25,7 +25,7 @@ Author: Matthew Amy
 #include <set>
 #include <map>
 #include "matroid.h"
-#include "optimization.h"
+#include "util.h"
 
 using namespace std;
 
@@ -79,6 +79,8 @@ struct character {
   dotqc synthesize();
   dotqc synthesize_unbounded();
 };
+
+int insert_phase (unsigned char c, xor_func f, vector<exponent> & phases);
 
 // ------------------------- {CNOT, T} version
 

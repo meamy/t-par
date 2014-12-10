@@ -19,6 +19,6 @@
 Author: Matthew Amy
 ---------------------------------------------------------------------*/
 
-#include "util.h"
+#include "circuit.h"
 
-void remove_x(int n, vector<exponent> & phase);
+void remove_x(character & circ);

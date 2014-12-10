@@ -21,12 +21,28 @@ Author: Matthew Amy
 
 #include "optimization.h"
 
-void remove_x(int n, vector<exponent> & phase) {
-  for (vector<exponent>::iterator it = phase.begin(); it != phase.end(); it++) {
-    if (it->second.test(n)) {
-      it->second.reset(n);
-      it->first = (it->first + 7) % 8;
-      phase.push_back(make_pair(it->first, xor_func(n + 1)));
+void add_vector(int n, vector<exponent> & A, const vector<exponent> & B) {
+  vector<exponent>::const_iterator it;
+  for (it = B.begin(); it != B.end(); it++) insert_phase(it->first, it->second, A);
+}
+
+//void simple_opt(int n, vector<exponent> & A) {
+
+void remove_x(character & circ) {
+  int n = circ.n + circ.h;
+  int i, ind;
+  list<Hadamard>::iterator it;
+
+  for (i = 0; i < circ.phase_expts.size(); i++) {
+    if (circ.phase_expts[i].second.test(n)) {
+      xor_func tmp = circ.phase_expts[i].second;
+      tmp.reset(n);
+      insert_phase(circ.phase_expts[i].first, xor_func(n + 1, 0), circ.phase_expts);
+      ind = insert_phase((circ.phase_expts[i].first*7) % 8, tmp, circ.phase_expts);
+      for (it = circ.hadamards.begin(); it != circ.hadamards.end(); it++) {
+	if (it->in.find(i) != it->in.end()) it->in.insert(ind);
+      }
+      circ.phase_expts[i].first = 0;
     }
   }
 }
