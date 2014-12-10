@@ -22,3 +22,4 @@ Author: Matthew Amy
 #include "circuit.h"
 
 void remove_x(character & circ);
+void gaussian_opt(character & circ);

@@ -21,12 +21,55 @@ Author: Matthew Amy
 
 #include "optimization.h"
 
-void add_vector(int n, vector<exponent> & A, const vector<exponent> & B) {
-  vector<exponent>::const_iterator it;
-  for (it = B.begin(); it != B.end(); it++) insert_phase(it->first, it->second, A);
+int max_weight(const vector<exponent> & A) {
+  int cur_max = 3;
+  int cur_ind = -1;
+  int i;
+  
+  for (i = 0; i < A.size(); i++) {
+    if ((A[i].first % 2 == 1) && (A[i].second.count() > cur_max)) cur_ind = i;
+  }
+
+  return cur_ind;
 }
 
-//void simple_opt(int n, vector<exponent> & A) {
+void add_id(vector<exponent> & A, xor_func f, int cur, int n, int val) {
+  for (; cur < n; cur++) {
+    if (f.test(cur)) {
+      add_id(A, f, cur + 1, n, val);
+      f.reset(cur);
+      insert_phase(val, f, A);
+      if (f.count() > 1) add_id(A, f, cur + 1, n, val);
+    }
+  }
+}
+
+void gaussian_opt(character & circ) {
+  int cur_size, cur_val;
+  int index = max_weight(circ.phase_expts);
+  list<Hadamard>::iterator it;
+  int i;
+
+  while (index != -1) {
+    cur_size = circ.phase_expts.size();
+    cur_val  = 8 - circ.phase_expts[index].first;
+    circ.phase_expts[index].first = 0;
+    add_id(circ.phase_expts, circ.phase_expts[index].second, 0, circ.n + circ.h, cur_val);
+    for (it = circ.hadamards.begin(); it != circ.hadamards.end(); it++) {
+      if (it->in.find(index) != it->in.end()) {
+	for (i = cur_size; i < circ.phase_expts.size(); i++) it->in.insert(i);
+      }
+    }
+    index = max_weight(circ.phase_expts);
+  }
+
+  int total = 0;
+  for (i = 0; i < circ.phase_expts.size(); i++) {
+    if (circ.phase_expts[i].first % 2 == 1) total++;
+  }
+  cout << "# T-count: " << total << "\n" << flush;
+    
+}
 
 void remove_x(character & circ) {
   int n = circ.n + circ.h;
