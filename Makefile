@@ -1,5 +1,5 @@
 FLAGS = -O3 -std=c++0x
-OBJS = partition.o util.o circuit.o main.o
+OBJS = partition.o util.o optimization.o circuit.o main.o
 CXX = g++
 
 all: $(OBJS)
@@ -10,6 +10,9 @@ partition.o: src/partition.cpp
 
 util.o: src/util.cpp
 	$(CXX) -c $(FLAGS) src/util.cpp
+
+optimization.o: src/optimization.cpp
+	$(CXX) -c $(FLAGS) src/optimization.cpp
 
 circuit.o: src/circuit.cpp
 	$(CXX) -c $(FLAGS) src/circuit.cpp

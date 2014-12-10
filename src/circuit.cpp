@@ -498,6 +498,7 @@ void character::parse_circuit(dotqc & input) {
     } else if (it->first == "Y" && it->second.size() == 1) {
       a = name_map[*(it->second.begin())];
       insert_phase(gate_lookup[it->first], wires[a], phase_expts);
+      insert_phase(2, xor_func(n + h + 1, 0), phase_expts);
       wires[name_map[*(it->second.begin())]].flip(n + h);
     } else if (it->first == "T" || it->first == "T*" || 
         it->first == "P" || it->first == "P*" || 
@@ -619,6 +620,10 @@ dotqc character::synthesize() {
   ind_oracle oracle(n + m, dim, n + h);
   list<pair<string, list<string> > > circ;
   list<Hadamard>::iterator it;
+  int global_phase = 0;
+
+  // Remove x gates
+  remove_x(n + h, phase_expts);
 
   // initialize some stuff
   ret.n = n;
@@ -636,7 +641,8 @@ dotqc character::synthesize() {
 
   // initialize the remaining list
   for (int i = 0; i < phase_expts.size(); i++) {
-    if (phase_expts[i].first % 2 == 1) remaining[0].push_back(i);
+    if (phase_expts[i].second == xor_func(n + h + 1, 0)) global_phase = phase_expts[i].first;
+    else if (phase_expts[i].first % 2 == 1) remaining[0].push_back(i);
     else if (phase_expts[i].first != 0) remaining[1].push_back(i);
   }
 
@@ -715,6 +721,9 @@ dotqc character::synthesize() {
       construct_circuit(phase_expts, floats[1], wires, outputs, n + m, n + h, names));
   if (disp_log) cerr << "  " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
 
+  // Add the global phase
+  ret.circ.splice(ret.circ.end(), global_phase_synth(n + m, global_phase, names));
+
   return ret;
 }
 
@@ -741,8 +750,10 @@ dotqc character::synthesize_unbounded() {
 
   // initialize the remaining list
   for (int i = 0; i < phase_expts.size(); i++) {
-    if (phase_expts[i].first % 2 == 1) remaining[0].push_back(i);
-    else if (phase_expts[i].first != 0) remaining[1].push_back(i);
+    if (phase_expts[i].second != xor_func(n + h + 1, 0)) {
+      if (phase_expts[i].first % 2 == 1) remaining[0].push_back(i);
+      else if (phase_expts[i].first != 0) remaining[1].push_back(i);
+    }
   }
 
   // create an initial partition

@@ -73,6 +73,33 @@ gatelist x_com(int a, const string * names) {
   return ret;
 }
 
+gatelist om_com(int a, const string * names) {
+  gatelist ret;
+  list<string> tmp_list;
+
+  tmp_list.push_back(names[a]);
+  ret.push_back(make_pair("H", tmp_list));
+  ret.push_back(make_pair("P", tmp_list));
+  ret.push_back(make_pair("H", tmp_list));
+  ret.push_back(make_pair("P", tmp_list));
+  ret.push_back(make_pair("H", tmp_list));
+  ret.push_back(make_pair("P", tmp_list));
+
+  return ret;
+}
+
+gatelist i_com(int a, const string * names) {
+  gatelist ret;
+  list<string> tmp_list;
+
+  tmp_list.push_back(names[a]);
+  ret.push_back(make_pair("tof", tmp_list));
+  ret.push_back(make_pair("Z", tmp_list));
+  ret.push_back(make_pair("Y", tmp_list));
+
+  return ret;
+}
+
 // Make triangular to determine the rank
 int compute_rank_dest(int m, int n, xor_func * tmp) {
   int k, i, j;
@@ -391,6 +418,22 @@ gatelist CNOT_synth(int n, xor_func * bits, const string * names) {
   acc.reverse();
 
   return acc; 
+}
+
+gatelist global_phase_synth(int n, int phase, const string * names) {
+  gatelist acc;
+  int qubit = 0;
+
+  if (phase % 2 == 1) {
+    acc.splice(acc.end(), om_com(qubit, names));
+    qubit = (qubit + 1) % n;
+  }
+  for (int i = phase / 2; i > 0; i--) {
+    acc.splice(acc.end(), i_com(qubit, names));
+    qubit = (qubit + 1) % n;
+  }
+
+  return acc;
 }
 
 // Construct a circuit for a given partition

@@ -25,7 +25,7 @@ Author: Matthew Amy
 #include <set>
 #include <map>
 #include "matroid.h"
-#include "util.h"
+#include "optimization.h"
 
 using namespace std;
 
