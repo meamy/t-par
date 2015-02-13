@@ -1,4 +1,4 @@
-FLAGS = -O3 -std=c++0x
+FLAGS = -O3 -std=c++0x -fpermissive
 OBJS = partition.o util.o optimization.o circuit.o main.o
 CXX = g++
 

@@ -57,6 +57,7 @@ int main(int argc, char *argv[]) {
   cout << flush;
 
   circuit.remove_ids();
+  /*
   if (full_character) {
     character c;
     if (disp_log) cerr << "Parsing circuit...\n" << flush;
@@ -92,6 +93,11 @@ int main(int argc, char *argv[]) {
   cout << "#   Time: " << (end.tv_sec + (double)end.tv_nsec/1000000000) 
     - (start.tv_sec + (double)start.tv_nsec/1000000000) << " s\n";
   synth.print();
+  */
+  character c;
+  c.parse_circuit(circuit);
+  remove_x(c);
+  minT(c.n + c.h, c.phase_expts);
 
   return 0;
 }

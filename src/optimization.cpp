@@ -90,3 +90,119 @@ void remove_x(character & circ) {
   }
 }
 
+#include <algorithm>
+
+// m is number of variables
+// n = 2^m - 1, length of words of RM(m, r)* code
+
+typedef set<xor_func> word;
+
+void print_word(int m, word & A) {
+  for (int i = 1; i < (1 << m); i++) {
+    if (A.find(xor_func(m, i)) == A.end()) cout << "0";
+    else cout << "1";
+  }
+  cout << "\n";
+}
+
+word quotient(word & A, xor_func q) {
+  word res;
+  xor_func p;
+
+  for (word::iterator it = A.begin(); it != A.end(); it++) {
+    p = *it - q;
+    if (res.find(p) == res.end()) res.insert(p);
+    else res.erase(p);
+  }
+
+  return res;
+}
+
+word eval_monomial(int m, xor_func q) {
+  word res;
+  xor_func x;
+  int i;
+
+  for (i = 1; i < (1 << m); i++) {
+    x = xor_func(m, i);
+    if ((x & q) == q) res.insert(x);
+  }
+
+  return res;
+}
+
+word add_words(word & A, word & B) {
+  word res;
+  set_symmetric_difference(A.begin(), A.end(), B.begin(), B.end(), inserter(res, res.begin()));
+  return res;
+}
+
+void decode(int m, word & y) {
+  string bitmask;
+  xor_func q;
+  word z;
+  word code;
+
+  // For each degree <= m-4...
+  for (int k = m - 4; k >= 0; k--) {
+    code.clear();
+    bitmask = string(k, '1');
+    bitmask.resize(m, '0');
+    // For each monomial (i.e. each string of length m with k bits)
+    do {
+      // Create a bitset from bitmask
+      q = xor_func(bitmask);
+      // Now quotient the word y by those bits
+      z = quotient(y, q);
+      // z.size() gives the number of 1 votes
+      // If the 1 votes form a majority (> 2^(m - k)/2) then assign q 1
+      if (z.size() > (1 << (m - k - 1))) {
+	// That is, compute the word of evaluations of q as a monomial
+	// Then add it to the result
+	word tmp = eval_monomial(m, q);
+	code = add_words(code, tmp);
+      }
+    } while (prev_permutation(bitmask.begin(), bitmask.end()));
+    // Add the degree k codeword to y
+    y = add_words(y, code);
+  }
+}
+
+void minT(int m, const vector<exponent> & A) {
+  word y;
+
+  for (vector<exponent>::const_iterator it = A.begin(); it != A.end(); it++) {
+    if (it->first % 2 == 1) {
+      xor_func tmp = it->second;
+      tmp.resize(m);
+      y.insert(tmp);
+    }
+  }
+  //  print_word(m, y);
+  cout << "Original T-count: " << y.size() << "\n";
+
+  decode(m, y);
+  //  print_word(m, y);
+  cout << "Optimized T-count: " << y.size() << "\n";
+
+}
+
+#include <time.h>
+
+void test() {
+  srand (time(NULL));
+  cout << "Starting..." << "\n" << flush;
+  int m = 10;
+  xor_func mon(m, 1 << 4);
+  word w = eval_monomial(m, mon);
+  print_word(m, w);
+  for (int i = 0; i < 4; i++) {
+    int s = rand() % ((1 << m) - 1) + 1;
+    xor_func tmp(m, s);
+    if (w.find(tmp) == w.end()) w.insert(tmp);
+    else w.erase(tmp);
+  }
+  print_word(m, w);
+  decode(m, w);
+  print_word(m, w);
+}
