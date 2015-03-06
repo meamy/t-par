@@ -90,6 +90,8 @@ void remove_x(character & circ) {
   }
 }
 
+// ------------------------ Majority logic decoding
+
 #include <algorithm>
 
 // m is number of variables
@@ -137,6 +139,27 @@ word add_words(word & A, word & B) {
   return res;
 }
 
+pair<int, word> reduce_vals(int m, word & A) {
+  int mp;
+  word Ap;
+  xor_func p(m, 0);
+  xor_func tmp;
+  word::iterator it;
+
+  for (it = A.begin(); it != A.end(); it++) p |= *it;
+  mp = p.count();
+  for (it = A.begin(); it != A.end(); it++) {
+    int j = 0;
+    tmp = xor_func(mp, 0);
+    for (int i = 0; i < m; i++) {
+      if (p.test(i)) tmp[j++] = (*it)[i];
+    }
+    Ap.insert(tmp);
+  }
+  return make_pair(mp, Ap); 
+}
+
+
 void decode(int m, word & y) {
   string bitmask;
   xor_func q;
@@ -168,6 +191,7 @@ void decode(int m, word & y) {
   }
 }
 
+
 void minT(int m, const vector<exponent> & A) {
   word y;
 
@@ -187,6 +211,7 @@ void minT(int m, const vector<exponent> & A) {
 
 }
 
+
 #include <time.h>
 
 void test() {
@@ -204,5 +229,270 @@ void test() {
   }
   print_word(m, w);
   decode(m, w);
+  print_word(m, w);
+}
+
+// --------------------------------------- Recursive decoding
+
+#include <list>
+
+typedef list<pair<xor_func, float> > sparse_vec;
+
+void print_vec(const sparse_vec & A) {
+  sparse_vec::const_iterator Ai;
+  
+  for (Ai = A.begin(); Ai != A.end(); Ai++) {
+    cout << "(" << (Ai->first).to_ulong() << ", " << Ai->second << "), ";
+  }
+
+  cout << "\n";
+}
+
+void increment(xor_func & x) {
+  for (int loop = 0; loop < x.size(); loop++) {
+    x.flip(loop);
+    if (x.test(loop)) break;
+  }
+}
+
+sparse_vec from_word(int m, word & w) {
+  sparse_vec res;
+  word::const_iterator wi;
+  xor_func tmp = xor_func(m, 0);
+
+  res.push_back(make_pair(tmp, 1));
+
+  for (wi = w.begin(); wi != w.end(); wi++) {
+    if (*wi == tmp && tmp != xor_func(m, 0)) {
+      res.pop_back();
+    } else {
+      tmp = *wi;
+      res.push_back(make_pair(tmp, -1));
+    }
+    increment(tmp);
+    if (tmp != xor_func(m, 0)) res.push_back(make_pair(tmp, 1));
+  }
+
+  return res;
+}
+
+word to_word(int m, sparse_vec & A) {
+  word res;
+  int current;
+  sparse_vec::iterator Ai = A.begin();
+
+  for (xor_func tmp = xor_func(m, 0); ; ) {
+    if (tmp == Ai->first) {
+      if (Ai->second == -1) current = 1;
+      else if (Ai->second == 1) current = 0;
+      else assert(false);
+      Ai++;
+    }
+    if (current == 1) res.insert(tmp);
+    increment(tmp);
+    if (tmp == xor_func(m, 0)) break;
+  }
+
+  return res;
+}
+
+void reset_high_order(int m, sparse_vec & A) {
+  sparse_vec::iterator Ai;
+
+  for (Ai = A.begin(); Ai != A.end(); Ai++) (Ai->first).reset(m-1);
+}
+
+void set_high_order(int m, sparse_vec & A) {
+  sparse_vec::iterator Ai;
+
+  for (Ai = A.begin(); Ai != A.end(); Ai++) (Ai->first).set(m-1);
+}
+
+sparse_vec split_vec(int n, int m, sparse_vec & A) {
+  sparse_vec res;
+  sparse_vec::iterator Ai;
+  xor_func test(n, 0);
+  test.set(m-1);
+
+  for (Ai = A.begin(); Ai != A.end(); Ai++) {
+    if (Ai->first == test) {
+      res.splice(res.begin(), A, Ai, A.end());
+      reset_high_order(m, res);
+      return res;
+    } else if (Ai->first.test(m-1)) {
+      res.splice(res.begin(), A, Ai, A.end());
+      break;
+    }
+  }
+  reset_high_order(m, res);
+
+  assert(not(A.empty()));
+  if (res.empty() || (res.begin())->first != xor_func(n, 0)) {
+    Ai = A.end();
+    Ai--;
+    res.push_front(make_pair(xor_func(n, 0), Ai->second));
+  }
+  return res;
+}
+
+sparse_vec vec_vec_mul(const sparse_vec & A, const sparse_vec & B) {
+  sparse_vec res;
+  sparse_vec::const_iterator Ai, Bi;
+
+  for (Ai = A.begin(), Bi = B.begin(); Ai != A.end() && Bi != B.end(); Ai++, Bi++) {
+    if (Ai->first == Bi-> first) {
+      res.push_back(make_pair(Ai->first, Ai->second * Bi->second));
+    } else if (Ai->first < Bi->first) {
+      Bi--;
+      res.push_back(make_pair(Ai->first, Ai->second * Bi->second));
+    } else {
+      Ai--;
+      res.push_back(make_pair(Bi->first, Ai->second * Bi->second));
+    }
+  }
+
+  Bi--;
+  for ( ; Ai != A.end(); Ai++) {
+    res.push_back(make_pair(Ai->first, Ai->second * Bi->second));
+  }
+  Bi++;
+  Ai--;
+  for ( ; Bi != B.end(); Bi++) {
+    res.push_back(make_pair(Bi->first, Ai->second * Bi->second));
+  }
+  Ai++;
+
+  return res;
+}
+
+sparse_vec vec_vec_add(const sparse_vec & A, const sparse_vec & B) {
+  sparse_vec res;
+  sparse_vec::const_iterator Ai, Bi;
+
+  for (Ai = A.begin(), Bi = B.begin(); Ai != A.end() && Bi != B.end(); Ai++, Bi++) {
+    if (Ai->first == Bi-> first) {
+      res.push_back(make_pair(Ai->first, Ai->second + Bi->second));
+    } else if (Ai->first < Bi->first) {
+      Bi--;
+      res.push_back(make_pair(Ai->first, Ai->second + Bi->second));
+    } else {
+      Ai--;
+      res.push_back(make_pair(Bi->first, Ai->second + Bi->second));
+    }
+  }
+
+  Bi--;
+  for ( ; Ai != A.end(); Ai++) {
+    res.push_back(make_pair(Ai->first, Ai->second + Bi->second));
+  }
+  Bi++;
+  Ai--;
+  for ( ; Bi != B.end(); Bi++) {
+    res.push_back(make_pair(Bi->first, Ai->second + Bi->second));
+  }
+  Ai++;
+
+  return res;
+}
+
+void scaler_vec_mul(float c, sparse_vec & A) {
+  sparse_vec::iterator Ai;
+
+  for (Ai = A.begin(); Ai != A.end(); Ai++) {
+    Ai->second *= c;
+  }
+}
+
+void vec_reduce(sparse_vec & A) {
+  sparse_vec::iterator Ai = A.begin();
+  float current = Ai->second;
+
+  Ai++;
+  for(; Ai != A.end();) {
+    if (Ai->second == current) Ai = A.erase(Ai);
+    else current = (Ai++)->second;
+  }
+}
+
+sparse_vec recursive_decode(int n, int m, int r, sparse_vec A) {
+  sparse_vec res;
+  sparse_vec::const_iterator Ai;
+
+  if (r == 0) {                                   // {m, 0} decoding
+    float tot = 0;
+    for (Ai = A.begin(); Ai != A.end(); Ai++) tot += Ai->second;
+    if (tot >= 0) res.push_back(make_pair(xor_func(n, 0), 1));
+    else res.push_back(make_pair(xor_func(n, 0), -1));
+  } else if (r == m) {                            // {m, m} decoding
+    for (Ai = A.begin(); Ai != A.end(); Ai++) {
+      if (Ai->second >= 0) res.push_back(make_pair(Ai->first, 1));
+      else res.push_back(make_pair(Ai->first, -1));
+    }
+  } else {
+    sparse_vec B = split_vec(n, m, A);
+    sparse_vec tmp1 = vec_vec_mul(A, B);
+    vec_reduce(tmp1);
+    sparse_vec v = recursive_decode(n, m-1, r-1, tmp1);
+    tmp1 = vec_vec_mul(B, v);
+    sparse_vec tmp2 = vec_vec_add(A, tmp1);
+    vec_reduce(tmp2);
+    scaler_vec_mul(0.5, tmp2);
+    sparse_vec u = recursive_decode(n, m-1, r, tmp2);
+    sparse_vec uv = vec_vec_mul(u, v);
+    set_high_order(m, uv);
+    res.splice(res.end(), u);
+    res.splice(res.end(), uv);
+    vec_reduce(res);
+  }
+
+  return res;
+}
+
+void decode_rec(int m, word & y) {
+  sparse_vec B = from_word(m, y);
+  sparse_vec C = recursive_decode(m, m, m-4, B);
+  word z = to_word(m, C);
+  word e = add_words(y, z);
+  y = e;
+}
+
+void minT_rec(int m, const vector<exponent> & A) {
+  word y;
+
+  for (vector<exponent>::const_iterator it = A.begin(); it != A.end(); it++) {
+    if (it->first % 2 == 1) {
+      xor_func tmp = it->second;
+      tmp.resize(m);
+      y.insert(tmp);
+    }
+  }
+  //  print_word(m, y);
+  cout << "Original T-count: " << y.size() << "\n";
+
+  cout << "Original number of variables: " << m << "\n";
+  pair<int, word> yp = reduce_vals(m, y);
+  cout << "New number of variables: " << yp.first << "\n";
+  decode_rec(yp.first, yp.second);
+  //decode_rec(m, y);
+  //  print_word(m, y);
+  cout << "Optimized T-count: " << y.size() << "\n";
+
+}
+
+void test_rec() {
+  srand (time(NULL));
+  cout << "Starting..." << "\n" << flush;
+  int m = 5;
+  xor_func mon(m, 1 << 4);
+  word w = eval_monomial(m, mon);
+  print_word(m, w);
+  for (int i = 0; i < 3; i++) {
+    int s = rand() % ((1 << m) - 1) + 1;
+    xor_func tmp(m, s);
+    if (w.find(tmp) == w.end()) w.insert(tmp);
+    else w.erase(tmp);
+  }
+  print_word(m, w);
+  decode_rec(m, w);
   print_word(m, w);
 }

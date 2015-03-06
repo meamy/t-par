@@ -97,7 +97,9 @@ int main(int argc, char *argv[]) {
   character c;
   c.parse_circuit(circuit);
   remove_x(c);
-  minT(c.n + c.h, c.phase_expts);
+  minT_rec(c.n + c.h, c.phase_expts);
+
+//  test_rec();
 
   return 0;
 }

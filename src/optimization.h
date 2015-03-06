@@ -25,4 +25,6 @@ void remove_x(character & circ);
 void gaussian_opt(character & circ);
 
 void minT(int m, const vector<exponent> & A);
+void minT_rec(int m, const vector<exponent> & A);
 void test();
+void test_rec();
