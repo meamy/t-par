@@ -28,3 +28,4 @@ void minT(int m, const vector<exponent> & A);
 void minT_rec(int m, const vector<exponent> & A);
 void test();
 void test_rec();
+void test_rec_decode(int m, character & c);

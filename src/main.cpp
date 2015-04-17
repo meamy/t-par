@@ -94,10 +94,24 @@ int main(int argc, char *argv[]) {
     - (start.tv_sec + (double)start.tv_nsec/1000000000) << " s\n";
   synth.print();
   */
+
   character c;
   c.parse_circuit(circuit);
   remove_x(c);
-  minT_rec(c.n + c.h, c.phase_expts);
+  test_rec_decode(c.n + c.h, c);
+ 
+ /* 
+  metacircuit meta;
+  meta.partition_dotqc(circuit);
+  for (list<pair<circuit_type, dotqc> >::iterator it = meta.circuit_list.begin(); it != meta.circuit_list.end(); it++) {
+    if (it->first == CNOTT) {
+      character c;
+      c.parse_circuit(it->second);
+      remove_x(c);
+      test_rec_decode(c.n, c);
+    }
+  }
+  */
 
 //  test_rec();
 
