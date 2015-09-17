@@ -193,6 +193,8 @@ void decode(int m, word & y) {
 
 
 void minT(int m, const vector<exponent> & A) {
+  if (A.empty()) return;
+
   word y;
 
   for (vector<exponent>::const_iterator it = A.begin(); it != A.end(); it++) {
@@ -202,13 +204,20 @@ void minT(int m, const vector<exponent> & A) {
       y.insert(tmp);
     }
   }
-  //  print_word(m, y);
-  cout << "Original T-count: " << y.size() << "\n";
 
+  int init_size = y.size();
+//  pair<int, word> yp = reduce_vals(m, y);
   decode(m, y);
-  //  print_word(m, y);
-  cout << "Optimized T-count: " << y.size() << "\n";
+  if (disp_log) cerr << "T-count reduction: " << init_size << "/" << y.size() << "\n";
 
+  // For re-synthesis
+  if (y.size() < init_size) {
+    A.clear();
+    for (word::iterator it = y.begin(); it != y.end(); it++) {
+      it->resize(m + 1);
+      A.push_back(make_pair(1, *it));
+    }
+  }
 }
 
 
@@ -450,6 +459,8 @@ sparse_vec recursive_decode(int n, int m, int r, sparse_vec A) {
   sparse_vec res;
   sparse_vec::const_iterator Ai;
 
+  if (r < 0) return res;
+
   if (r == 0) {                                   // {m, 0} decoding
     float tot = 0;
     for (Ai = A.begin(); Ai != A.end(); Ai++) {
@@ -550,6 +561,8 @@ void decode_rec_H(int m, word & y, word & mask) {
 }
 
 void minT_rec(int m, const vector<exponent> & A) {
+  if (A.empty()) return;
+
   word y;
 
   for (vector<exponent>::const_iterator it = A.begin(); it != A.end(); it++) {
@@ -559,17 +572,20 @@ void minT_rec(int m, const vector<exponent> & A) {
       y.insert(tmp);
     }
   }
-  //  print_word(m, y);
-  cout << "Original T-count: " << y.size() << "\n";
 
-//  cout << "Original number of variables: " << m << "\n";
+  int init_size = y.size();
 //  pair<int, word> yp = reduce_vals(m, y);
-//  cout << "New number of variables: " << yp.first << "\n";
   decode_rec(m, y);
-  //decode_rec(m, y);
-  //  print_word(m, y);
-  cout << "Optimized T-count: " << y.size() << "\n";
+  if (disp_log) cerr << "T-count reduction: " << init_size << "/" << y.size() << "\n";
 
+  // For re-synthesis
+  if (y.size() < init_size) {
+    A.clear();
+    for (word::iterator it = y.begin(); it != y.end(); it++) {
+      it->resize(m + 1);
+      A.push_back(make_pair(1, *it));
+    }
+  }
 }
 
 void add_all_combs(int n, int m, xor_func * wires, word & w) {

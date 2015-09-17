@@ -28,6 +28,9 @@ int main(int argc, char *argv[]) {
   dotqc circuit, synth;
   bool full_character = true;
   bool post_process = true;
+  bool remove_xs = true;
+  Decoder decoder = RECURSIVE;
+  
   int anc = 0;
   // Quick and dirty solution, don't judge me
   for (int i = 0; i < argc; i++) 
@@ -49,6 +52,9 @@ int main(int argc, char *argv[]) {
   else if ((string)argv[i] == "-synth=GAUSS") synth_method = GAUSS;
   else if ((string)argv[i] == "-synth=PMH") synth_method = PMH;
   else if ((string)argv[i] == "-log") disp_log = true;
+  else if ((string)argv[i] == "-keep-x") remove_xs = false;
+  else if ((string)argv[i] == "-decoder=MAJ") decoder = MAJORITY;
+  else if ((string)argv[i] == "-decoder=REC") decoder = RECURSIVE;
 
   if (disp_log) cerr << "Reading circuit...\n" << flush;
   circuit.input(cin);
@@ -57,29 +63,47 @@ int main(int argc, char *argv[]) {
   cout << flush;
 
   circuit.remove_ids();
-  /*
   if (full_character) {
     character c;
     if (disp_log) cerr << "Parsing circuit...\n" << flush;
     c.parse_circuit(circuit);
-    remove_x(c);
-    gaussian_opt(c);
+    if (remove_xs) remove_x(c);
     if (anc == -1) c.add_ancillae(c.n + c.m);
     else if (anc > 0) c.add_ancillae(anc);
-    if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
+    if (disp_log) cerr << "Optimizing polynomial...\n" << flush;
     clock_gettime(CLOCK_MONOTONIC, &start);
+    if (decoder != MAJORITY) test_rec_decode(c.n + c.h, c);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
     if (anc == -2) synth = c.synthesize_unbounded();
     else           synth = c.synthesize();
-    clock_gettime(CLOCK_MONOTONIC, &end);
   } else {
+    //character c;
+    //c.parse_circuit(circuit);
+    //remove_x(c);
+    //circuit = c.synthesize();
     metacircuit meta;
     if (disp_log) cerr << "Parsing circuit...\n" << flush;
     meta.partition_dotqc(circuit);
     if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
     clock_gettime(CLOCK_MONOTONIC, &start);
-    meta.optimize();
+    for (list<pair<circuit_type, dotqc> >::iterator it = meta.circuit_list.begin(); 
+         it != meta.circuit_list.end(); it++) {
+      if (it->first == CNOTT) {
+        character c;
+        c.parse_circuit(it->second);
+        if (remove_xs) remove_x(c);
+        if (decoder == MAJORITY) minT(c.n + c.h, c.phase_expts);
+        else minT_rec(c.n + c.h, c.phase_expts);
+        it->second = c.synthesize();
+      }
+    }
     clock_gettime(CLOCK_MONOTONIC, &end);
     synth = meta.to_dotqc();
+    character d;
+    d.parse_circuit(synth);
+    if (remove_xs) remove_x(d);
+    synth = d.synthesize();
   }
 
   if (post_process) {
@@ -93,12 +117,13 @@ int main(int argc, char *argv[]) {
   cout << "#   Time: " << (end.tv_sec + (double)end.tv_nsec/1000000000) 
     - (start.tv_sec + (double)start.tv_nsec/1000000000) << " s\n";
   synth.print();
-  */
 
+  /*
   character c;
   c.parse_circuit(circuit);
   remove_x(c);
   test_rec_decode(c.n + c.h, c);
+  */
  
  /* 
   metacircuit meta;
@@ -111,6 +136,33 @@ int main(int argc, char *argv[]) {
       test_rec_decode(c.n, c);
     }
   }
+  */
+
+  // EPIC RESYNTH
+  /*
+  character c;
+  c.parse_circuit(circuit);
+  remove_x(c);
+  synth = c.synthesize();
+  */
+  /*
+  metacircuit meta;
+  meta.partition_dotqc(circuit);
+  for (list<pair<circuit_type, dotqc> >::iterator it = meta.circuit_list.begin(); it != meta.circuit_list.end(); it++) {
+    if (it->first == CNOTT) {
+      character c;
+      c.parse_circuit(it->second);
+      if (!c.phase_expts.empty()) minT_rec(c.n + c.h, c.phase_expts);
+      it->second = c.synthesize();
+    }
+  }
+  dotqc newcirc = meta.to_dotqc();
+  character c;
+  c.parse_circuit(newcirc);
+  remove_x(c);
+  synth = c.synthesize();
+  synth.print_stats();
+  synth.print();
   */
 
 //  test_rec();

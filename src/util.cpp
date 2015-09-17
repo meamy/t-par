@@ -23,7 +23,7 @@ Author: Matthew Amy
 #include <map>
 
 bool disp_log = false;
-synth_type synth_method = PMH;
+synth_type synth_method = GAUSS;
 
 void print_wires(const xor_func * wires, int num, int dim) {
   int i, j;

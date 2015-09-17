@@ -21,6 +21,8 @@ Author: Matthew Amy
 
 #include "circuit.h"
 
+enum Decoder { MAJORITY, RECURSIVE };
+
 void remove_x(character & circ);
 void gaussian_opt(character & circ);
 
