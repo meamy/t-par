@@ -161,6 +161,31 @@ int dotqc::count_t_depth() {
   return max_depth(current_t_depth, names);
 }
 
+int dotqc::count_depth() {
+  gatelist::reverse_iterator it;
+  list<string>::const_iterator ti;
+  map<string, int> current_depth;
+  int d;
+
+  for (ti = names.begin(); ti != names.end(); ti++) {
+    current_depth[*ti] = 0;
+  }
+
+  for (it = circ.rbegin(); it != circ.rend(); it++) {
+    d = max_depth(current_depth, it->second);
+    if ((it->first == "Z") && (it->second.size() >= 3)) {
+      d = d + 9;
+    } else {
+      d = d + 1;
+    }
+    for (ti = it->second.begin(); ti != it->second.end(); ti++) {
+      current_depth[*ti] = d;
+    }
+  }
+
+  return max_depth(current_depth, names);
+}
+
 // Gather statistics and print
 void dotqc::print_stats() {
   int H = 0;
@@ -207,6 +232,7 @@ void dotqc::print_stats() {
   cout << "#   P: " << P << "\n";
   cout << "#   Z: " << Z << "\n";
   cout << "#   tdepth (by partitions): " << tdepth << "\n";
+  cout << "#   depth  (by critical paths): " << count_depth() << "\n";
   cout << "#   tdepth (by critical paths): " << count_t_depth() << "\n";
 
 }
