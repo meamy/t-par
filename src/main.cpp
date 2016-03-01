@@ -23,15 +23,14 @@ Author: Matthew Amy
 #include <iomanip>
 #include <chrono>
 
-float clock_seconds(){
-  using Clock = std::chrono::high_resolution_clock;
-  constexpr auto num = Clock::period::num;
-  constexpr auto den = Clock::period::den;
-  return (Clock::now().time_since_epoch().count() * (float)num / (float)den);
+using Clock = std::chrono::high_resolution_clock;
+
+chrono::duration<double> elapsed(Clock::time_point start, Clock::time_point end) {
+  return chrono::duration_cast<chrono::duration<double> >(end - start);
 }
 
 int main(int argc, char *argv[]) {
-  float start, end;
+  Clock::time_point start, end;
   dotqc circuit, synth;
   bool full_character = true;
   bool post_process = true;
@@ -71,18 +70,18 @@ int main(int argc, char *argv[]) {
     if (anc == -1) c.add_ancillae(c.n + c.m);
     else if (anc > 0) c.add_ancillae(anc);
     if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
-    start = clock_seconds();
+    start = Clock::now();
     if (anc == -2) synth = c.synthesize_unbounded();
     else           synth = c.synthesize();
-    end = clock_seconds();
+    end = Clock::now();
   } else {
     metacircuit meta;
     if (disp_log) cerr << "Parsing circuit...\n" << flush;
     meta.partition_dotqc(circuit);
     if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
-    start = clock_seconds();
+    start = Clock::now();
     meta.optimize();
-    end = clock_seconds();
+    end = Clock::now();
     synth = meta.to_dotqc();
   }
 
@@ -94,7 +93,7 @@ int main(int argc, char *argv[]) {
   cout << "# Optimized circuit\n";
   synth.print_stats();
   cout << fixed << setprecision(3);
-  cout << "#   Time: " << end - start << " s\n";
+  cout << "#   Time: " << elapsed(start, end).count() << " s\n";
   synth.print();
 
   return 0;
