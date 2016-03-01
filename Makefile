@@ -1,9 +1,9 @@
-FLAGS = -O3 -std=c++0x
+FLAGS = -I/opt/local/include -Wall -O3 -std=c++1y
 OBJS = partition.o util.o circuit.o main.o
-CXX = g++
+CXX = clang++
 
 all: $(OBJS)
-	$(CXX) $(FLAGS) -o t-par $(OBJS) -lrt
+	$(CXX) $(FLAGS) -o t-par $(OBJS)
 
 partition.o: src/partition.cpp
 	$(CXX) -c $(FLAGS) src/partition.cpp

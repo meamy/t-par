@@ -18,19 +18,26 @@
 
 Author: Matthew Amy
 ---------------------------------------------------------------------*/
-
 #include "circuit.h"
 #include <cstdio>
 #include <iomanip>
+#include <chrono>
+
+float clock_seconds(){
+  using Clock = std::chrono::high_resolution_clock;
+  constexpr auto num = Clock::period::num;
+  constexpr auto den = Clock::period::den;
+  return (Clock::now().time_since_epoch().count() * (float)num / (float)den);
+}
 
 int main(int argc, char *argv[]) {
-  struct timespec start, end;
+  float start, end;
   dotqc circuit, synth;
   bool full_character = true;
   bool post_process = true;
   int anc = 0;
   // Quick and dirty solution, don't judge me
-  for (int i = 0; i < argc; i++) 
+  for (int i = 0; i < argc; i++)
        if ((string)argv[i] == "-no-hadamard") full_character = false;
   else if ((string)argv[i] == "-ancillae") {
     i++;
@@ -64,18 +71,18 @@ int main(int argc, char *argv[]) {
     if (anc == -1) c.add_ancillae(c.n + c.m);
     else if (anc > 0) c.add_ancillae(anc);
     if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    start = clock_seconds();
     if (anc == -2) synth = c.synthesize_unbounded();
     else           synth = c.synthesize();
-    clock_gettime(CLOCK_MONOTONIC, &end);
+    end = clock_seconds();
   } else {
     metacircuit meta;
     if (disp_log) cerr << "Parsing circuit...\n" << flush;
     meta.partition_dotqc(circuit);
     if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    start = clock_seconds();
     meta.optimize();
-    clock_gettime(CLOCK_MONOTONIC, &end);
+    end = clock_seconds();
     synth = meta.to_dotqc();
   }
 
@@ -87,8 +94,7 @@ int main(int argc, char *argv[]) {
   cout << "# Optimized circuit\n";
   synth.print_stats();
   cout << fixed << setprecision(3);
-  cout << "#   Time: " << (end.tv_sec + (double)end.tv_nsec/1000000000) 
-    - (start.tv_sec + (double)start.tv_nsec/1000000000) << " s\n";
+  cout << "#   Time: " << end - start << " s\n";
   synth.print();
 
   return 0;

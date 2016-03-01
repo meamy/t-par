@@ -57,7 +57,7 @@ struct Hadamard {
   int prep;         // Which "value" this hadamard prepares
 
   set<int> in;      // exponent terms that must be prepared before the hadamard
-  xor_func * wires; // state of the wires when this hadamard is applied
+  vector<xor_func> wires; // state of the wires when this hadamard is applied
 };
 
 // Characteristic of a circuit
@@ -65,11 +65,11 @@ struct character {
   int n;                        // number of unknown inputs
   int m;                        // number of zero-initialized ancilla qubits
   int h;                        // number of hadamards
-  string           * names;     // names of qubits
-  bool             * zero;      // Which qubits start as 0
+  vector<string>     names;     // names of qubits
+  vector<bool>       zero;      // Which qubits start as 0
   map<int, int>      val_map;   // which value corresponds to which qubit
   vector<exponent> phase_expts; // a list of exponents of \omega in the mapping
-  xor_func         * outputs;   // the xors computed into each qubit
+  vector<xor_func> outputs;   // the xors computed into each qubit
   // TODO: make this a dependency graph instead
   list<Hadamard>   hadamards;   // a list of the hadamards in the order we saw them
 
