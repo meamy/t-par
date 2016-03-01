@@ -30,7 +30,6 @@ void ignore_white(istream& in) {
 }
 
 void dotqc::input(istream& in) {
-  int i, j;
   string buf, tmp;
   list<string> namelist;
   n = 0;
@@ -89,9 +88,8 @@ void dotqc::input(istream& in) {
 }
 
 void dotqc::output(ostream& out) {
-  int i;
   list<string>::iterator name_it;
-  gatelist::iterator it; 
+  gatelist::iterator it;
   list<string>::iterator ti;
 
   // Inputs
@@ -140,14 +138,13 @@ int dotqc::count_t_depth() {
   gatelist::reverse_iterator it;
   list<string>::const_iterator ti;
   map<string, int> current_t_depth;
-  int d;
 
   for (ti = names.begin(); ti != names.end(); ti++) {
     current_t_depth[*ti] = 0;
   }
 
   for (it = circ.rbegin(); it != circ.rend(); it++) {
-    d = max_depth(current_t_depth, it->second);
+    int d = max_depth(current_t_depth, it->second);
     if ((it->first == "T") || (it->first == "T*")) {
       d = d + 1;
     } else if ((it->first == "Z") && (it->second.size() >= 3)) {
@@ -478,7 +475,7 @@ void insert_phase (unsigned char c, xor_func f, vector<exponent> & phases) {
 // Parse a {CNOT, T} circuit
 // NOTE: a qubit's number is NOT the same as the bit it's value represents
 void character::parse_circuit(dotqc & input) {
-  int i, j, a, b, c, name_max = 0, val_max = 0;
+  int a, b, c, name_max = 0, val_max = 0;
   n = input.n;
   m = input.m;
   h = count_h(input);
@@ -493,9 +490,9 @@ void character::parse_circuit(dotqc & input) {
   gate_lookup["Y"] = 4;
 
   // Initialize names and wires
-  names = new string [n + m + h];
-  zero  = new bool   [n + m];
-  xor_func * wires = outputs = new xor_func [n + m];
+  names = vector<string>(n + m + h);
+  zero  = vector<bool>  (n + m);
+  auto wires = vector<xor_func>(n+m);
   for (list<string>::iterator it = input.names.begin(); it != input.names.end(); it++) {
     // name_map maps a name to a wire
     name_map[*it] = name_max;
@@ -525,8 +522,8 @@ void character::parse_circuit(dotqc & input) {
       a = name_map[*(it->second.begin())];
       insert_phase(gate_lookup[it->first], wires[a], phase_expts);
       wires[name_map[*(it->second.begin())]].flip(n + h);
-    } else if (it->first == "T" || it->first == "T*" || 
-        it->first == "P" || it->first == "P*" || 
+    } else if (it->first == "T" || it->first == "T*" ||
+        it->first == "P" || it->first == "P*" ||
         (it->first == "Z" && it->second.size() == 1)) {
       a = name_map[*(it->second.begin())];
       insert_phase(gate_lookup[it->first], wires[a], phase_expts);
@@ -553,15 +550,15 @@ void character::parse_circuit(dotqc & input) {
       Hadamard new_h;
       new_h.qubit = name_map[*(it->second.begin())];
       new_h.prep  = val_max++;
-      new_h.wires = new xor_func[n + m];
-      for (i = 0; i < n + m; i++) {
+      new_h.wires = vector<xor_func>(n + m);
+      for (int i = 0; i < n + m; i++) {
         new_h.wires[i] = wires[i];
       }
 
       // Check previous exponents to see if they're inconsistent
       wires[new_h.qubit].reset();
       int rank = compute_rank(n + m, n + h, wires);
-      for (i = 0; i < phase_expts.size(); i++) {
+      for (int i = 0; i < phase_expts.size(); i++) {
         if (phase_expts[i].first != 0) {
           wires[new_h.qubit] = phase_expts[i].second;
           if (compute_rank(n + m, n + h, wires) > rank) new_h.in.insert(i);
@@ -583,9 +580,10 @@ void character::parse_circuit(dotqc & input) {
     } else {
       cout << "ERROR: not a {H, CNOT, X, Y, Z, P, T} circuit\n";
       phase_expts.clear();
-      delete[] outputs;
     }
   }
+  //Outputs are all wires until ancilla are added
+  outputs = std::move(wires);
 }
 
 void character::add_ancillae(int num) {
@@ -594,21 +592,20 @@ void character::add_ancillae(int num) {
 
   int new_m = m + num;
   int i;
-  string * new_names = new string[num_qubits];
-  bool * new_zero    = new bool[num_qubits];
-  xor_func * new_out = new xor_func[num_qubits];
-  xor_func * new_wires;
+  auto new_names = vector<string>(num_qubits);
+  auto new_zero    = vector<bool>(num_qubits);
+  auto new_out = vector<xor_func>(num_qubits);
 
   for (list<Hadamard>::iterator it = hadamards.begin(); it != hadamards.end(); it++) {
-    new_wires = new xor_func[num_qubits];
+    vector<xor_func> new_wires(num_qubits);
     for (i = 0; i < num_qubits; i++) {
       if (i < (n + m)) new_wires[i] = it->wires[i];
       else new_wires[i] = xor_func(n + h + 1, 0);
     }
-    delete[] it->wires;
-    it->wires = new_wires;
+    it->wires = std::move(new_wires);
   }
 
+  cout << "num bits: " << num_qubits  << endl;
   for (i = 0; i < num_qubits; i++) {
     if (i < (n + m)) {
       new_names[i] = names[i];
@@ -623,25 +620,22 @@ void character::add_ancillae(int num) {
     }
   }
 
-  delete[] names;
-  delete[] zero;
-  delete[] outputs;
-
   names = new_names;
   zero = new_zero;
   outputs = new_out;
   m = new_m;
 }
-  
+
 //---------------------------- Synthesis
 
 dotqc character::synthesize() {
-  partitioning floats[2], frozen[2]; 
+  auto floats = vector<partitioning>(2);
+  auto frozen = vector<partitioning>(2);
   dotqc ret;
   xor_func mask(n + h + 1, 0);      // Tells us what values we have prepared
-  xor_func wires[n + m];        // Current state of the wires
-  list<int> remaining[2];          // Which terms we still have to partition
-  int dim = n, tmp, tdepth = 0, h_count = 1, applied = 0, j;
+  vector<xor_func> wires(n + m);        // Current state of the wires
+  vector<list<int> > remaining(2);          // Which terms we still have to partition
+  int dim = n, tmp, h_count = 1, applied = 0, j;
   ind_oracle oracle(n + m, dim, n + h);
   list<pair<string, list<string> > > circ;
   list<Hadamard>::iterator it;
@@ -677,12 +671,12 @@ dotqc character::synthesize() {
       } else it++;
     }
   }
-  if (disp_log) cerr << "  " << phase_expts.size() - (remaining[0].size() + remaining[1].size())  
+  if (disp_log) cerr << "  " << phase_expts.size() - (remaining[0].size() + remaining[1].size())
     << "/" << phase_expts.size() << " phase rotations partitioned\n" << flush;
 
   for (it = hadamards.begin(); it != hadamards.end(); it++, h_count++) {
     // 1. freeze partitions that are not disjoint from the hadamard input
-    // 2. construct CNOT+T circuit
+    // 2.construct CNOT+T circuit
     // 3. apply the hadamard gate
     // 4. add new functions to the partition
     if (disp_log) cerr << "  Hadamard " << h_count << "/" << hadamards.size() << "\n" << flush;
@@ -694,9 +688,9 @@ dotqc character::synthesize() {
     }
 
     // Construct {CNOT, T} subcircuit for the frozen partitions
-    ret.circ.splice(ret.circ.end(), 
+    ret.circ.splice(ret.circ.end(),
         construct_circuit(phase_expts, frozen[0], wires, wires, n + m, n + h, names));
-    ret.circ.splice(ret.circ.end(), 
+    ret.circ.splice(ret.circ.end(),
         construct_circuit(phase_expts, frozen[1], wires, it->wires, n + m, n + h, names));
     for (int i = 0; i < n + m; i++) {
       wires[i] = it->wires[i];
@@ -735,9 +729,9 @@ dotqc character::synthesize() {
 
   applied += num_elts(floats[0]) + num_elts(floats[1]);
   // Construct the final {CNOT, T} subcircuit
-  ret.circ.splice(ret.circ.end(), 
+  ret.circ.splice(ret.circ.end(),
       construct_circuit(phase_expts, floats[0], wires, wires, n + m, n + h, names));
-  ret.circ.splice(ret.circ.end(), 
+  ret.circ.splice(ret.circ.end(),
       construct_circuit(phase_expts, floats[1], wires, outputs, n + m, n + h, names));
   if (disp_log) cerr << "  " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
 
@@ -745,12 +739,12 @@ dotqc character::synthesize() {
 }
 
 dotqc character::synthesize_unbounded() {
-  partitioning floats[2], frozen[2]; 
+  partitioning floats[2], frozen[2];
   dotqc ret;
   xor_func mask(n + h + 1, 0);      // Tells us what values we have prepared
-  xor_func * wires =  new xor_func[n + m]; // Current state of the wires
+  auto wires = vector<xor_func>(n + m); // Current state of the wires
   list<int> remaining[2];          // Which terms we still have to partition
-  int dim = n, tmp1, tmp2, tdepth = 0, h_count = 1, applied = 0, j;
+  int dim = n, tmp1, tmp2, h_count = 1, applied = 0, j;
   ind_oracle oracle(n + m, dim, n + h);
   list<pair<string, list<string> > > circ;
   list<Hadamard>::iterator it;
@@ -783,7 +777,7 @@ dotqc character::synthesize_unbounded() {
       } else it++;
     }
   }
-  if (disp_log) cerr << "  " << phase_expts.size() - (remaining[0].size() + remaining[1].size())  
+  if (disp_log) cerr << "  " << phase_expts.size() - (remaining[0].size() + remaining[1].size())
     << "/" << phase_expts.size() << " phase rotations partitioned\n" << flush;
 
   for (it = hadamards.begin(); it != hadamards.end(); it++, h_count++) {
@@ -803,13 +797,9 @@ dotqc character::synthesize_unbounded() {
         tmp2 = compute_rank(n + h, phase_expts, *(frozen[j].begin()));
         int etc = ((tmp1 - tmp2 < 0)?tmp1:tmp1 - tmp2) + num_elts(frozen[j]) - n - m;
         if (etc > 0) {
-          xor_func * tmp = new xor_func[n + m + etc];
-          for (int i = 0; i < n + m + etc; i++) {
-            if (i < n + m) tmp[i] = wires[i];
-            else tmp[i] = xor_func(n + h + 1, 0);
+          for (int i = 0; i < etc; i++) {
+            wires.push_back(xor_func(n + h + 1, 0));
           }
-          delete[] wires;
-          wires = tmp;
           add_ancillae(etc);
         }
       }
@@ -817,9 +807,9 @@ dotqc character::synthesize_unbounded() {
 
     if (disp_log) cerr << "    Synthesizing T-layer\n" << flush;
     // Construct {CNOT, T} subcircuit for the frozen partitions
-    ret.circ.splice(ret.circ.end(), 
+    ret.circ.splice(ret.circ.end(),
         construct_circuit(phase_expts, frozen[0], wires, wires, n + m, n + h, names));
-    ret.circ.splice(ret.circ.end(), 
+    ret.circ.splice(ret.circ.end(),
         construct_circuit(phase_expts, frozen[1], wires, it->wires, n + m, n + h, names));
     for (int i = 0; i < n + m; i++) {
       wires[i] = it->wires[i];
@@ -859,28 +849,27 @@ dotqc character::synthesize_unbounded() {
         int etc = tmp1 - tmp2 + num_elts(floats[j]) - n - m;
         if (etc > 0) {
           if (disp_log) cerr << "    " << "Adding " << etc << " ancilla(e)\n" << flush;
-          xor_func * tmp = new xor_func[n + m + etc];
+          vector<xor_func> tmp(n + m + etc);
           for (int i = 0; i < n + m + etc; i++) {
             if (i < n + m) tmp[i] = wires[i];
             else tmp[i] = xor_func(n + h + 1, 0);
           }
-          delete[] wires;
-          wires = tmp;
+          wires = std::move(tmp);
           add_ancillae(etc);
         }
       }
     }
   }
 
-  ret.circ.splice(ret.circ.end(), 
+  ret.circ.splice(ret.circ.end(),
       construct_circuit(phase_expts, floats[0], wires, wires, n + m, n + h, names));
-  ret.circ.splice(ret.circ.end(), 
+  ret.circ.splice(ret.circ.end(),
       construct_circuit(phase_expts, floats[1], wires, outputs, n + m, n + h, names));
   if (disp_log) cerr << "  " << applied << "/" << phase_expts.size() << " phase rotations applied\n" << flush;
 
   ret.n = n;
   ret.m = m;
-  for (int i = 0, j = 0; i < n + m; i++) {
+  for (int i = 0; i < n + m; i++) {
     ret.names.push_back(names[i]);
     ret.zero[names[i]] = zero[i];
   }

@@ -47,14 +47,14 @@ class ind_oracle {
     bool operator()(const vector<exponent> & expnts, const set<int> & lst) const;
 };
 
-void print_wires(const xor_func * wires, int num, int dim);
-int compute_rank(int m, int n, const xor_func * bits);
+void print_wires(const vector<xor_func>& wires, int num, int dim);
+int compute_rank(int m, int n, const vector<xor_func>& bits);
 int compute_rank(int n, const vector<exponent> & expnts, const set<int> & lst);
 
 gatelist construct_circuit(const vector<exponent> & phase, 
     const partitioning & part, 
-    xor_func * in, 
-    const xor_func * out,
+    vector<xor_func>& in,
+    const vector<xor_func>& out,
     int num,
     int dim,
-    const string * names);
+    const vector<string>& names);
