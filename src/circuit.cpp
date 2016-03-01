@@ -30,7 +30,6 @@ void ignore_white(istream& in) {
 }
 
 void dotqc::input(istream& in) {
-  int i, j;
   string buf, tmp;
   list<string> namelist;
   n = 0;
@@ -89,7 +88,6 @@ void dotqc::input(istream& in) {
 }
 
 void dotqc::output(ostream& out) {
-  int i;
   list<string>::iterator name_it;
   gatelist::iterator it;
   list<string>::iterator ti;
@@ -140,14 +138,13 @@ int dotqc::count_t_depth() {
   gatelist::reverse_iterator it;
   list<string>::const_iterator ti;
   map<string, int> current_t_depth;
-  int d;
 
   for (ti = names.begin(); ti != names.end(); ti++) {
     current_t_depth[*ti] = 0;
   }
 
   for (it = circ.rbegin(); it != circ.rend(); it++) {
-    d = max_depth(current_t_depth, it->second);
+    int d = max_depth(current_t_depth, it->second);
     if ((it->first == "T") || (it->first == "T*")) {
       d = d + 1;
     } else if ((it->first == "Z") && (it->second.size() >= 3)) {
@@ -478,7 +475,7 @@ void insert_phase (unsigned char c, xor_func f, vector<exponent> & phases) {
 // Parse a {CNOT, T} circuit
 // NOTE: a qubit's number is NOT the same as the bit it's value represents
 void character::parse_circuit(dotqc & input) {
-  int i, j, a, b, c, name_max = 0, val_max = 0;
+  int a, b, c, name_max = 0, val_max = 0;
   n = input.n;
   m = input.m;
   h = count_h(input);
@@ -554,14 +551,14 @@ void character::parse_circuit(dotqc & input) {
       new_h.qubit = name_map[*(it->second.begin())];
       new_h.prep  = val_max++;
       new_h.wires = vector<xor_func>(n + m);
-      for (i = 0; i < n + m; i++) {
+      for (int i = 0; i < n + m; i++) {
         new_h.wires[i] = wires[i];
       }
 
       // Check previous exponents to see if they're inconsistent
       wires[new_h.qubit].reset();
       int rank = compute_rank(n + m, n + h, wires);
-      for (i = 0; i < phase_expts.size(); i++) {
+      for (int i = 0; i < phase_expts.size(); i++) {
         if (phase_expts[i].first != 0) {
           wires[new_h.qubit] = phase_expts[i].second;
           if (compute_rank(n + m, n + h, wires) > rank) new_h.in.insert(i);
@@ -638,7 +635,7 @@ dotqc character::synthesize() {
   xor_func mask(n + h + 1, 0);      // Tells us what values we have prepared
   vector<xor_func> wires(n + m);        // Current state of the wires
   vector<list<int> > remaining(2);          // Which terms we still have to partition
-  int dim = n, tmp, tdepth = 0, h_count = 1, applied = 0, j;
+  int dim = n, tmp, h_count = 1, applied = 0, j;
   ind_oracle oracle(n + m, dim, n + h);
   list<pair<string, list<string> > > circ;
   list<Hadamard>::iterator it;
@@ -747,7 +744,7 @@ dotqc character::synthesize_unbounded() {
   xor_func mask(n + h + 1, 0);      // Tells us what values we have prepared
   auto wires = vector<xor_func>(n + m); // Current state of the wires
   list<int> remaining[2];          // Which terms we still have to partition
-  int dim = n, tmp1, tmp2, tdepth = 0, h_count = 1, applied = 0, j;
+  int dim = n, tmp1, tmp2, h_count = 1, applied = 0, j;
   ind_oracle oracle(n + m, dim, n + h);
   list<pair<string, list<string> > > circ;
   list<Hadamard>::iterator it;
@@ -872,7 +869,7 @@ dotqc character::synthesize_unbounded() {
 
   ret.n = n;
   ret.m = m;
-  for (int i = 0, j = 0; i < n + m; i++) {
+  for (int i = 0; i < n + m; i++) {
     ret.names.push_back(names[i]);
     ret.zero[names[i]] = zero[i];
   }

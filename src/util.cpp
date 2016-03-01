@@ -76,13 +76,12 @@ gatelist x_com(int a, const vector<string>& names) {
 
 // Make triangular to determine the rank
 int compute_rank_dest(int m, int n, vector<xor_func>& tmp) {
-  int k, i, j;
+  int i, j;
   int ret = 0;
-  bool flg;
 
   // Make triangular
   for (i = 0; i < n; i++) {
-    flg = false;
+    bool flg = false;
     for (j = ret; j < m; j++) {
       if (tmp[j].test(i)) {
         // If we haven't yet seen a vector with bit i set...
@@ -127,9 +126,8 @@ int compute_rank(int n, const vector<exponent> & expnts, const set<int> & lst) {
 // Make echelon form
 gatelist to_upper_echelon(int m, int n, vector<xor_func>& bits, vector<xor_func>* mat, const vector<string>& names) {
   gatelist acc;
-  int k, i, j;
+  int i, j;
   int rank = 0;
-  bool flg;
   for (j = 0; j < m; j++) {
     if (bits[j].test(n)) {
       bits[j].reset(n);
@@ -140,7 +138,7 @@ gatelist to_upper_echelon(int m, int n, vector<xor_func>& bits, vector<xor_func>
 
   // Make triangular
   for (i = 0; i < n; i++) {
-    flg = false;
+    bool flg = false;
     for (j = rank; j < m; j++) {
       if (bits[j].test(i)) {
         // If we haven't yet seen a vector with bit i set...
@@ -273,11 +271,9 @@ void compose(int num, vector<xor_func>& A, const vector<xor_func>& B) {
 
 // Gaussian elimination based CNOT synthesis
 gatelist gauss_CNOT_synth(int n, int m, vector<xor_func>& bits, const vector<string>& names) {
-  int i, j, k;
   gatelist lst;
-  list<string> tmp_list1, tmp_list2;
 
-  for (j = 0; j < n; j++) {
+  for (int j = 0; j < n; j++) {
     if (bits[j].test(n)) {
       bits[j].reset(n);
       lst.splice(lst.begin(), x_com(j, names));
@@ -285,9 +281,9 @@ gatelist gauss_CNOT_synth(int n, int m, vector<xor_func>& bits, const vector<str
   }
 
   // Make triangular
-  for (i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++) {
     bool flg = false;
-    for (j = i; j < n + m; j++) {
+    for (int j = i; j < n + m; j++) {
       if (bits[j].test(i)) {
         // If we haven't yet seen a vector with bit i set...
         if (!flg) {
@@ -310,8 +306,8 @@ gatelist gauss_CNOT_synth(int n, int m, vector<xor_func>& bits, const vector<str
   }
 
   //Finish the job
-  for (i = n-1; i > 0; i--) {
-    for (j = i - 1; j >= 0; j--) {
+  for (int i = n-1; i > 0; i--) {
+    for (int j = i - 1; j >= 0; j--) {
       if (bits[j].test(i)) {
         bits[j] ^= bits[i];
         lst.splice(lst.begin(), xor_com(i, j, names));
@@ -377,7 +373,7 @@ gatelist Lwr_CNOT_synth(int n, int m, vector<xor_func>& bits, const vector<strin
 }
 
 gatelist CNOT_synth(int n, vector<xor_func>& bits, const vector<string>& names) {
-  gatelist acc, tmp;
+  gatelist acc;
   int i, j, m = (int)(log((double)n) / (log(2) * 2));
 
   for (j = 0; j < n; j++) {
@@ -518,7 +514,6 @@ bool ind_oracle::operator()(const vector<exponent> & expnts, const set<int> & ls
 
   set<int>::const_iterator it;
   int i, j, rank = 0;
-  bool flg;
   auto tmp = vector<xor_func>(lst.size());
 
   for (i = 0, it = lst.begin(); it != lst.end(); it++, i++) {
@@ -526,7 +521,7 @@ bool ind_oracle::operator()(const vector<exponent> & expnts, const set<int> & ls
   }
 
   for (i = 0; i < length; i++) {
-    flg = false;
+    bool flg = false;
     for (j = rank; j < lst.size(); j++) {
       if (tmp[j].test(i)) {
         // If we haven't yet seen a vector with bit i set...
@@ -550,7 +545,6 @@ int ind_oracle::retrieve_lin_dep(const vector<exponent> & expnts, const set<int>
   set<int>::const_iterator it;
   int i, j, rank = 0, tmpr;
   map<int, int> mp;
-  bool flg;
   auto tmp = vector<xor_func>(lst.size());
 
   for (i = 0, it = lst.begin(); it != lst.end(); it++, i++) {
@@ -563,7 +557,7 @@ int ind_oracle::retrieve_lin_dep(const vector<exponent> & expnts, const set<int>
   }
 
   for (i = 0; i < length; i++) {
-    flg = false;
+    bool flg = false;
     for (j = rank; j < lst.size(); j++) {
       if (tmp[j].test(i)) {
         // If we haven't yet seen a vector with bit i set...

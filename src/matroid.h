@@ -65,9 +65,8 @@ void add_to_partition(partitioning & ret, int i, const vector<T> & elts, const o
   deque<path> node_q;
   path t;
   path_iterator p;
-  bool marked[elts.size()], flag, bg_flg;
+  bool marked[elts.size()], flag;
   int tmp;
-  set<int> * newset;
 
   // Reset everything
   node_q.clear();
@@ -130,9 +129,9 @@ void add_to_partition(partitioning & ret, int i, const vector<T> & elts, const o
 
   // We were unsuccessful trying to edit the current partitions
   if (!flag) {
-    newset = new set<int>;
-    newset->insert(i);
-    ret.push_front(*newset);
+    set<int> newset;
+    newset.insert(i);
+    ret.push_front(newset);
   }
 
 }
