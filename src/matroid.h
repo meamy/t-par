@@ -65,15 +65,15 @@ void add_to_partition(partitioning & ret, int i, const vector<T> & elts, const o
   deque<path> node_q;
   path t;
   path_iterator p;
-  bool marked[elts.size()], flag;
+  vector<bool> marked(elts.size());
   int tmp;
+  bool flag = false;
 
   // Reset everything
   node_q.clear();
   for (int j = 0; j <= elts.size(); j++) {
     marked[j] = false;
   }
-  flag = false;
 
   // Insert element to be partitioned
   node_q.push_back(path(i, ret.end()));

@@ -322,7 +322,7 @@ gatelist gauss_CNOT_synth(int n, int m, vector<xor_func>& bits, const vector<str
 gatelist Lwr_CNOT_synth(int n, int m, vector<xor_func>& bits, const vector<string>& names, bool rev) {
   gatelist acc;
   int sec, tmp, row, col, i;
-  int patt[1<<m];
+  vector<int> patt(1<<m);
 
   for (sec = 0; sec < ceil(n / m); sec++) {
 

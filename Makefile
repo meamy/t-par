@@ -1,4 +1,4 @@
-FLAGS = -I/opt/local/include -Wall -O3 -std=c++1y
+FLAGS = -I/opt/local/include -Wall -pedantic -g -O3 -std=c++1y
 OBJS = partition.o util.o circuit.o main.o
 CXX = clang++
 
