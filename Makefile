@@ -1,6 +1,6 @@
 FLAGS = -I/opt/local/include -Wall -pedantic -g -O3 -std=c++1y
 OBJS = partition.o util.o circuit.o main.o
-CXX = clang++
+CXX = g++
 
 all: $(OBJS)
 	$(CXX) $(FLAGS) -o t-par $(OBJS)
