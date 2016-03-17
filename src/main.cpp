@@ -66,20 +66,20 @@ int main(int argc, char *argv[]) {
   if (full_character) {
     character c;
     if (disp_log) cerr << "Parsing circuit...\n" << flush;
+    start = Clock::now();
     c.parse_circuit(circuit);
     if (anc == -1) c.add_ancillae(c.n + c.m);
     else if (anc > 0) c.add_ancillae(anc);
     if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
-    start = Clock::now();
     if (anc == -2) synth = c.synthesize_unbounded();
     else           synth = c.synthesize();
     end = Clock::now();
   } else {
     metacircuit meta;
     if (disp_log) cerr << "Parsing circuit...\n" << flush;
+    start = Clock::now();
     meta.partition_dotqc(circuit);
     if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;
-    start = Clock::now();
     meta.optimize();
     end = Clock::now();
     synth = meta.to_dotqc();
