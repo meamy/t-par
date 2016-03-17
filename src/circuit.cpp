@@ -557,6 +557,19 @@ void character::parse_circuit(dotqc & input) {
 
       // Check previous exponents to see if they're inconsistent
       wires[new_h.qubit].reset();
+      compute_rank_dest(n + m, n + h, wires);
+      for (int i = 0; i < phase_expts.size(); i++) {
+        if (phase_expts[i].first != 0) {
+          if (is_indep(n + h, wires, phase_expts[i].second)) new_h.in.insert(i);
+        }
+      }
+
+      // Reset the current wire values
+      for (int i = 0; i < n + m; i++) {
+        wires[i] = new_h.wires[i];
+      }
+      /*
+      wires[new_h.qubit].reset();
       int rank = compute_rank(n + m, n + h, wires);
       for (int i = 0; i < phase_expts.size(); i++) {
         if (phase_expts[i].first != 0) {
@@ -564,6 +577,7 @@ void character::parse_circuit(dotqc & input) {
           if (compute_rank(n + m, n + h, wires) > rank) new_h.in.insert(i);
         }
       }
+      */
 
       // Done creating the new hadamard
       hadamards.push_back(new_h);

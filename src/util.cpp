@@ -74,7 +74,7 @@ gatelist x_com(int a, const vector<string>& names) {
   return ret;
 }
 
-// Make triangular to determine the rank
+// Make triangular to determine the rank (destructive)
 int compute_rank_dest(int m, int n, vector<xor_func>& tmp) {
   int i, j;
   int ret = 0;
@@ -121,6 +121,36 @@ int compute_rank(int n, const vector<exponent> & expnts, const set<int> & lst) {
   }
   ret = compute_rank_dest(m, n, tmp);
   return ret;
+}
+
+// Check linear independence of one vector wrt a matrix (destructive)
+bool is_indep_dest(int n, const vector<xor_func>& bits, xor_func & a) {
+  map<int, int> pivots;
+  // Find all pivot columns
+  for (int i = 0, j = 0; i < n && j < bits.size();) {
+    if (bits[j].test(i)) {
+      pivots[i] = j;
+      i++;
+      j++;
+    } else {
+      j++;
+    }
+  }
+  
+  for (int i = 0; i < n; i++) {
+    if (a.test(i)) {
+      map<int, int>::iterator it = pivots.find(i);
+      if (it == pivots.end()) return true;
+      else a ^= bits[(*it).second];
+    }
+  }
+
+  return false;
+}
+
+bool is_indep(int n, const vector<xor_func>& bits, const xor_func & a) {
+  xor_func tmp = a;
+  return is_indep_dest(n, bits, tmp);
 }
 
 // Make echelon form
