@@ -459,17 +459,16 @@ void character::output(ostream& out) {
 }
 
 void insert_phase (unsigned char c, xor_func f, vector<exponent> & phases) {
-  vector<exponent>::iterator it;
-  bool flg = false;
-  for (it = phases.begin(); it != phases.end() && !flg; it++) {
-    if (it->second == f) {
-      it->first = (it->first + c) % 8;
-      flg = true;
+
+  for (int i = 0; i < phases.size(); i++)
+    if (phases[i].second == f) {
+      phases[i].first = (phases[i].first + c) % 8;
+      return i;
     }
   }
-  if (!flg) {
-    phases.push_back(make_pair(c, xor_func(f)));
-  }
+
+  phases.push_back(make_pair(c, xor_func(f)));
+  return phases.size() - 1;
 }
 
 // Parse a {CNOT, T} circuit
@@ -638,6 +637,24 @@ void character::add_ancillae(int num) {
   zero = new_zero;
   outputs = new_out;
   m = new_m;
+}
+
+void character::remove_x() {
+  int i, ind;
+  list<Hadamard>::iterator it;
+
+  for (i = 0; i < phase_expts.size(); i++) {
+    if (phase_expts[i].second.test(n + h)) {
+      xor_func tmp = phase_expts[i].second;
+      tmp.reset(n + h);
+      insert_phase(phase_expts[i].first, xor_func(n + h + 1, 0), phase_expts);
+      ind = insert_phase((phase_expts[i].first*7) % 8, tmp, phase_expts);
+      for (it = hadamards.begin(); it != hadamards.end(); it++) {
+	      if (it->in.find(i) != it->in.end()) it->in.insert(ind);
+      }
+      phase_expts[i].first = 0;
+    }
+  }
 }
 
 //---------------------------- Synthesis
