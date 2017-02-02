@@ -34,6 +34,7 @@ int main(int argc, char *argv[]) {
   dotqc circuit, synth;
   bool full_character = true;
   bool post_process = true;
+  bool remove_constants = true;
   int anc = 0;
   // Quick and dirty solution, don't judge me
   for (int i = 0; i < argc; i++)
@@ -55,6 +56,7 @@ int main(int argc, char *argv[]) {
   else if ((string)argv[i] == "-synth=GAUSS") synth_method = GAUSS;
   else if ((string)argv[i] == "-synth=PMH") synth_method = PMH;
   else if ((string)argv[i] == "-log") disp_log = true;
+  else if ((string)argv[i] == "-no-remove-constants") remove_constants = false;
 
   if (disp_log) cerr << "Reading circuit...\n" << flush;
   circuit.input(cin);
@@ -68,6 +70,7 @@ int main(int argc, char *argv[]) {
     if (disp_log) cerr << "Parsing circuit...\n" << flush;
     start = Clock::now();
     c.parse_circuit(circuit);
+    if (remove_constants) c.remove_x();
     if (anc == -1) c.add_ancillae(c.n + c.m);
     else if (anc > 0) c.add_ancillae(anc);
     if (disp_log) cerr << "Resynthesizing circuit...\n" << flush;

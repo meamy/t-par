@@ -53,6 +53,8 @@ int compute_rank(int m, int n, const vector<xor_func>& bits);
 int compute_rank(int n, const vector<exponent> & expnts, const set<int> & lst);
 bool is_indep(int n, const vector<xor_func>& bits, const xor_func & a);
 
+gatelist global_phase_synth(int n, int phase, const vector<string>& names);
+
 gatelist construct_circuit(const vector<exponent> & phase, 
     const partitioning & part, 
     vector<xor_func>& in,

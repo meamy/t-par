@@ -77,6 +77,7 @@ struct character {
   void print() {output(cout);}
   void parse_circuit(dotqc & input);
   void add_ancillae(int num);
+  void remove_x();
   dotqc synthesize();
   dotqc synthesize_unbounded();
 };

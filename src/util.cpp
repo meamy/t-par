@@ -74,6 +74,33 @@ gatelist x_com(int a, const vector<string>& names) {
   return ret;
 }
 
+gatelist om_com(int a, const vector<string>& names) {
+  gatelist ret;
+  list<string> tmp_list;
+
+  tmp_list.push_back(names[a]);
+  ret.push_back(make_pair("H", tmp_list));
+  ret.push_back(make_pair("P", tmp_list));
+  ret.push_back(make_pair("H", tmp_list));
+  ret.push_back(make_pair("P", tmp_list));
+  ret.push_back(make_pair("H", tmp_list));
+  ret.push_back(make_pair("P", tmp_list));
+
+  return ret;
+}
+
+gatelist i_com(int a, const vector<string>& names) {
+  gatelist ret;
+  list<string> tmp_list;
+
+  tmp_list.push_back(names[a]);
+  ret.push_back(make_pair("tof", tmp_list));
+  ret.push_back(make_pair("Z", tmp_list));
+  ret.push_back(make_pair("Y", tmp_list));
+
+  return ret;
+}
+
 // Make triangular to determine the rank (destructive)
 int compute_rank_dest(int m, int n, vector<xor_func>& tmp) {
   int i, j;
@@ -422,6 +449,22 @@ gatelist CNOT_synth(int n, vector<xor_func>& bits, const vector<string>& names) 
   }
   acc.splice(acc.end(), Lwr_CNOT_synth(n, m, bits, names, true));
   acc.reverse();
+
+  return acc;
+}
+
+gatelist global_phase_synth(int n, int phase, const vector<string>& names) {
+  gatelist acc;
+  int qubit = 0;
+
+  if (phase % 2 == 1) {
+    acc.splice(acc.end(), om_com(qubit, names));
+    qubit = (qubit + 1) % n;
+  }
+  for (int i = phase / 2; i > 0; i--) {
+    acc.splice(acc.end(), i_com(qubit, names));
+    qubit = (qubit + 1) % n;
+  }
 
   return acc;
 }
