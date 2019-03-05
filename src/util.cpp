@@ -432,6 +432,8 @@ gatelist Lwr_CNOT_synth(int n, int m, vector<xor_func>& bits, const vector<strin
 gatelist CNOT_synth(int n, vector<xor_func>& bits, const vector<string>& names) {
   gatelist acc;
   int i, j, m = (int)(log((double)n) / (log(2) * 2));
+  // When m <= 1, PMH is just Gaussian elimination, so default to it
+  if (m <= 1) return gauss_CNOT_synth(n, 0, bits, names);
 
   for (j = 0; j < n; j++) {
     if (bits[j].test(n)) {
