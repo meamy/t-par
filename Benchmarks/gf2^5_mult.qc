@@ -15,7 +15,7 @@ Z a1 b4 c0
 Z a4 b2 c1
 Z a3 b3 c1
 Z a2 b4 c1
-Z a2 b3 c2
+Z a4 b3 c2
 Z a3 b4 c2
 Z a4 b4 c3
 
