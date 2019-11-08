@@ -16,9 +16,6 @@ cancelled in the polynomial, reducing the total number of phase gates (notably,
 T gates). Matroid partitioning is then used to optimally parallelize the
 remaining phase gates during resynthesis.
 
-We kindly request that anyone using this code to optimize circuits
-acknowledges the tool and/or the paper on which it is based in their work
-
 ## Building
 
 To build T-par, run make in the top level folder.
