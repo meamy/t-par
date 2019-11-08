@@ -1,12 +1,14 @@
-T-par
-=============================
+**_Note:_** _This tool has been largely supplanted by [Feynman](https://github.com/meamy/feynman)_
+
+# T-par
 Written by Matthew Amy
 
+## Description
 T-par is a quantum circuit optimizer utilizing sum-over-paths representations
 to analyze and re-synthesize Clifford+T circuits.
 
-The default algorithm is described in the paper "Polynomial-time T-depth
-Optimization of Clifford+T circuits via Matroid Partitioning" (arXiv:1303.2042).
+The default algorithm is described in the paper [Polynomial-time T-depth
+Optimization of Clifford+T circuits via Matroid Partitioning](https://arXiv.org/abs/1303.2042).
 It creates a semantic representation of a quantum circuit where the phase of a
 basis state in the output is given by a polynomial over the input and "path"
 variables. This representation causes individual phase gates to be combined or
@@ -17,26 +19,27 @@ remaining phase gates during resynthesis.
 We kindly request that anyone using this code to optimize circuits
 acknowledges the tool and/or the paper on which it is based in their work
 
-BUILD
-------------------------------
+## Building
 
 To build T-par, run make in the top level folder.
 
 tpar requires the following libraries:
 
--- Boost
+* Boost
 
 Boost should be available through your package manager. Additionally, 
 your compiler needs to support the c++0x/c++11 standard, or otherwise
 the code will likely require some (minor) modifications.
 
-USAGE
-------------------------------
+## Usage
 Run T-par with
+```
   ./t-par [options]
+```
 
-tpar takes a circuit in the .qc format (a description can be found at
-https://github.com/aparent/QCViewer) from standard input and outputs the
+tpar takes a circuit in the .qc format (a description can be found in
+the [QCViewer](https://github.com/aparent/QCViewer) repository) 
+from standard input and outputs the
 resulting .qc circuit to standard output. The circuit can only contain the 
 single qubit gates H, P, P*, T, T*, X, Y, Z, and the two qubit tof (CNOT) gate.
 It also accepts doubly controlled Z gates, i.e. Z a b c.
@@ -44,12 +47,12 @@ It also accepts doubly controlled Z gates, i.e. Z a b c.
 Demos are also available in the subfolder "demos". For example, to compute an
 optimized 6-bit cucarro adder, use the command
 
+```
   ./t-par < demos/cucarro_adder.qc
+```
 
-OPTIONS
-------------------------------
-Currently, the available options are
-
+### Options
+```
   -ancillae [0.., unbounded] - Specify the number of ancillae to add during
                                resynthesis. A natural number argument adds that
                                number of ancillae, while "unbounded" allows the
@@ -72,6 +75,7 @@ Currently, the available options are
                      may speed up synthesis for very large circuits
 
   -log - Display a log of the algorithm's process
+```
 
 This README is far from complete, so please feel free to email me at 
 matt.e.amy@gmail.com if you have any questions or if you find any bugs.
