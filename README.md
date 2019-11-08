@@ -1,4 +1,4 @@
-**_Note:_** _This tool has been largely supplanted by [Feynman](https://github.com/meamy/feynman)_
+**_Note:_** _This tool has been mostly supplanted by [Feynman](https://github.com/meamy/feynman)_
 
 # T-par
 Written by Matthew Amy
